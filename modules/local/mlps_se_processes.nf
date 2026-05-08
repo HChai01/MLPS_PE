@@ -4,14 +4,15 @@ process NORMALIZE_INPUT_FASTQ {
     tag { meta.id }
     label 'light'
     publishDir "${params.outdir}/00_fastq_links", mode: 'symlink'
+    conda "${projectDir}/environment/seqtk_env.yml"
+
+
 
     input:
     tuple val(meta), path(raw_r1, stageAs: 'input.R1.fastq.gz'), path(raw_r2, stageAs: 'input.R2.fastq.gz')
 
     output:
     tuple val(meta), path("${meta.id}.R1.fastq.gz"), path("${meta.id}.R2.fastq.gz"), emit: pair
-
-    conda "${projectDir}/environment/seqtk_env.yml"
 
     script:
     """
@@ -31,14 +32,15 @@ process NORMALIZE_INPUT_FASTQ {
 process COUNT_READS {
     tag { "${meta.id}:${stage_name}" }
     label 'light'
+    conda "${projectDir}/environment/seqtk_env.yml"
+
+
 
     input:
     tuple val(meta), path(reads), val(stage_name)
 
     output:
     tuple val(meta), val(stage_name), path('*.tsv'), emit: count_file
-
-    conda "${projectDir}/environment/seqtk_env.yml"
 
     script:
     """
@@ -60,14 +62,15 @@ process COUNT_READS {
 process COUNT_PAIRED_READS {
     tag { "${meta.id}:${stage_name}" }
     label 'light'
+    conda "${projectDir}/environment/seqtk_env.yml"
+
+
 
     input:
     tuple val(meta), path(read1), path(read2), val(stage_name)
 
     output:
     tuple val(meta), val(stage_name), path('*.tsv'), emit: count_file
-
-    conda "${projectDir}/environment/seqtk_env.yml"
 
     script:
     """
@@ -93,6 +96,9 @@ process COUNT_PAIRED_READS {
 process GENERATE_PREQC {
     tag { meta.id }
     publishDir "${params.outdir}/01_fastq_reports", mode: 'copy'
+    conda "${projectDir}/environment/plot_env.yml"
+
+
 
     input:
     tuple val(meta), path(read1), path(read2)
@@ -100,8 +106,6 @@ process GENERATE_PREQC {
     output:
     tuple val(meta), path('PreQC/*.preQC.tsv'), emit: report
     tuple val(meta), path('PreQC_PDF/*.preQC.pdf'), emit: pdf
-
-    conda "${projectDir}/environment/plot_env.yml"
 
     script:
     """
@@ -137,14 +141,15 @@ EOF
 process QUALITY_TRIM {
     tag { meta.id }
     publishDir "${params.outdir}/02_quality_trimming", mode: 'symlink'
+    conda "${projectDir}/environment/fastp_env.yml"
+
+
 
     input:
     tuple val(meta), path(read1), path(read2)
 
     output:
     tuple val(meta), path("${meta.id}.R1.f1.fastq.gz"), path("${meta.id}.R2.f1.fastq.gz"), emit: pair
-
-    conda "${projectDir}/environment/fastp_env.yml"
 
     script:
     """
@@ -175,7 +180,10 @@ process QUALITY_TRIM {
 // Output: `${sample}.primarycigar.txt` in the stage folder and a helper TSV row for summary merging.
 process SUMMARISE_PRIMARY_CIGAR {
     tag { "${meta.id}:${stage_name}" }
-    publishDir "${params.outdir}/${stage_name}", mode: 'copy', pattern: '*.primarycigar.txt'
+    publishDir({ "${params.outdir}/${stage_name}" }, mode: 'copy', pattern: '*.primarycigar.txt')
+    conda "${projectDir}/environment/samtools_env.yml"
+
+
 
     input:
     tuple val(meta), path(bam), val(stage_name), val(prefix)
@@ -183,8 +191,6 @@ process SUMMARISE_PRIMARY_CIGAR {
     output:
     tuple val(meta), path('*.primarycigar.txt'), emit: cigar_text
     tuple val(meta), path('*.primarycigar_row.tsv'), emit: cigar_row
-
-    conda "${projectDir}/environment/samtools_env.yml"
 
     script:
     """
@@ -216,14 +222,15 @@ EOF
 process SUBSAMPLE_READS {
     tag { meta.id }
     publishDir "${params.outdir}/02_quality_trimming", mode: 'symlink'
+    conda "${projectDir}/environment/seqtk_env.yml"
+
+
 
     input:
     tuple val(meta), path(read1), path(read2)
 
     output:
     tuple val(meta), path("${meta.id}.R1.f2.fastq.gz"), path("${meta.id}.R2.f2.fastq.gz"), emit: pair
-
-    conda "${projectDir}/environment/seqtk_env.yml"
 
     script:
     """
@@ -243,14 +250,15 @@ process SUBSAMPLE_READS {
 process ADAPTER_TRIM {
     tag { meta.id }
     publishDir "${params.outdir}/03_adapter_trimming", mode: 'symlink'
+    conda "${projectDir}/environment/cutadapt_env.yml"
+
+
 
     input:
     tuple val(meta), path(read1), path(read2)
 
     output:
     tuple val(meta), path("${meta.id}.R1.f3.fastq.gz"), path("${meta.id}.R2.f3.fastq.gz"), emit: pair
-
-    conda "${projectDir}/environment/cutadapt_env.yml"
 
     script:
     """
@@ -277,14 +285,15 @@ process ADAPTER_TRIM {
 process CHECK_HUMAN_REFERENCE {
     label 'light'
     publishDir "${params.outdir}/04_reference/HumanGenome", mode: 'copy', overwrite: false
+    conda "${projectDir}/environment/bowtie2_env.yml"
+
+
 
     input:
     val(human_db)
 
     output:
     path("human_reference.ok"), emit: check
-
-    conda "${projectDir}/environment/bowtie2_env.yml"
 
     script:
     """
@@ -306,14 +315,15 @@ process CHECK_HUMAN_REFERENCE {
 process REMOVE_HUMAN_READS {
     tag { meta.id }
     publishDir "${params.outdir}/05_nonhuman", mode: 'symlink'
+    conda "${projectDir}/environment/bowtie2_env.yml"
+
+
 
     input:
     tuple val(meta), path(read1), path(read2)
 
     output:
     tuple val(meta), path("${meta.id}.R1.f4.fastq.gz"), path("${meta.id}.R2.f4.fastq.gz"), emit: pair
-
-    conda "${projectDir}/environment/bowtie2_env.yml"
 
     script:
     """
@@ -347,6 +357,9 @@ process REMOVE_HUMAN_READS {
 process FORMAT_TARGET_REFERENCE {
     label 'light'
     publishDir "${params.outdir}/04_reference", mode: 'copy'
+    conda "${projectDir}/environment/samtools_env.yml"
+
+
 
     input:
     path(target_reference)
@@ -355,8 +368,6 @@ process FORMAT_TARGET_REFERENCE {
     tuple path("ref.format.fasta"), path("ref.double.fasta"), emit: refs
     path("ref.format.fasta"), emit: formatted
     path("ref.double.fasta"), emit: doubled
-
-    conda "${projectDir}/environment/samtools_env.yml"
 
     script:
     """
@@ -385,14 +396,15 @@ process FORMAT_TARGET_REFERENCE {
 process MIXGENOME_ALIGN {
     tag { meta.id }
     publishDir "${params.outdir}/06_mixgenome", mode: 'symlink'
+    conda "${projectDir}/environment/samtools_env.yml"
+
+
 
     input:
     tuple val(meta), path(read1), path(read2), path(ref_format), path(ref_double)
 
     output:
     tuple val(meta), path('*.mixgenome.bam'), emit: bam
-
-    conda "${projectDir}/environment/samtools_env.yml"
 
     script:
     def mappingRef = params.target_genome_type == 'circular' ? ref_double.getName() : ref_format.getName()
@@ -416,6 +428,9 @@ process EM_REALLOCATE_REFERENCES {
     tag { meta.id }
     publishDir "${params.outdir}/06_mixgenome", mode: 'symlink', pattern: '*.em_assignments.tsv'
     publishDir "${params.outdir}/06_mixgenome", mode: 'copy', pattern: '*.em_assignments_ref_summary.tsv'
+    conda "${projectDir}/environment/samtools_env.yml"
+
+
 
     input:
     tuple val(meta), path(bam)
@@ -423,8 +438,6 @@ process EM_REALLOCATE_REFERENCES {
     output:
     tuple val(meta), path('*.em_assignments.tsv'), emit: assignments
     tuple val(meta), path('*.em_assignments_ref_summary.tsv'), emit: summary
-
-    conda "${projectDir}/environment/samtools_env.yml"
 
     script:
     """
@@ -451,14 +464,15 @@ EOF
 process EXTRACT_TOP_REFERENCE {
     tag { meta.id }
     publishDir "${params.outdir}/04_reference", mode: 'copy'
+    conda "${projectDir}/environment/samtools_env.yml"
+
+
 
     input:
     tuple val(meta), path(ref_summary), path(formatted_reference)
 
     output:
     tuple val(meta), path('*.selected.fasta'), emit: reference
-
-    conda "${projectDir}/environment/samtools_env.yml"
 
     script:
     """
@@ -483,14 +497,15 @@ EOF
 process PREPARE_SAMPLE_REFERENCE {
     tag { meta.id }
     publishDir "${params.outdir}/04_reference", mode: 'copy'
+    conda "${projectDir}/environment/samtools_env.yml"
+
+
 
     input:
     tuple val(meta), path(reference_fasta, stageAs: 'input_reference.fasta')
 
     output:
     tuple val(meta), path('*.selected.fasta'), path('*.selected.double.fasta'), emit: refs
-
-    conda "${projectDir}/environment/samtools_env.yml"
 
     script:
     """
@@ -514,14 +529,15 @@ process PREPARE_SAMPLE_REFERENCE {
 process BUILD_TARGET_READ_POOL {
     tag { meta.id }
     publishDir "${params.outdir}/06_mixgenome", mode: 'symlink'
+    conda "${projectDir}/environment/samtools_env.yml"
+
+
 
     input:
     tuple val(meta), path(bam)
 
     output:
     tuple val(meta), path("${meta.id}.R1.target.fastq.gz"), path("${meta.id}.R2.target.fastq.gz"), emit: pair
-
-    conda "${projectDir}/environment/samtools_env.yml"
 
     script:
     """
@@ -554,14 +570,15 @@ EOF
 process L1_ALIGN {
     tag { meta.id }
     publishDir "${params.outdir}/07_L1_results", mode: 'copy'
+    conda "${projectDir}/environment/samtools_env.yml"
+
+
 
     input:
     tuple val(meta), path(read1), path(read2), path(reference_fasta), path(reference_double)
 
     output:
     tuple val(meta), path('*.L1.bam'), emit: bam
-
-    conda "${projectDir}/environment/samtools_env.yml"
 
     script:
     def mappingRef = params.target_genome_type == 'circular' ? reference_double.getName() : reference_fasta.getName()
@@ -585,14 +602,15 @@ process L1_ALIGN {
 process COUNT_ALIGNMENT_FLAGS {
     tag { meta.id }
     label 'light'
+    conda "${projectDir}/environment/samtools_env.yml"
+
+
 
     input:
     tuple val(meta), path(bam)
 
     output:
     tuple val(meta), path('*.flags.tsv'), emit: flag_file
-
-    conda "${projectDir}/environment/samtools_env.yml"
 
     script:
     """
@@ -623,14 +641,15 @@ process COUNT_ALIGNMENT_FLAGS {
 process BUILD_PILEUP {
     tag { meta.id }
     publishDir({ bam.getName().endsWith('.L1.bam') ? "${params.outdir}/07_L1_results" : bam.getName().endsWith('.L2.bam') ? "${params.outdir}/09_L2_results" : "${params.outdir}/08_assembly" }, mode: 'copy')
+    conda "${projectDir}/environment/samtools_env.yml"
+
+
 
     input:
     tuple val(meta), path(bam), path(reference_fasta), path(reference_double)
 
     output:
     tuple val(meta), path('*.pileup'), path('*.original_reference.fasta'), emit: pileup
-
-    conda "${projectDir}/environment/samtools_env.yml"
 
     script:
     def mappingRef = params.target_genome_type == 'circular' ? reference_double.getName() : reference_fasta.getName()
@@ -660,6 +679,9 @@ EOF
 process FORMAT_PILEUP {
     tag { "${meta.id}:${stage_name}" }
     publishDir({ "${params.outdir}/${stage_name}" }, mode: 'copy')
+    conda "${projectDir}/environment/samtools_env.yml"
+
+
 
     input:
     tuple val(meta), path(pileup, stageAs: 'input.pileup'), path(original_reference), val(stage_name)
@@ -671,8 +693,6 @@ process FORMAT_PILEUP {
     tuple val(meta), path('*.patchedref.fasta'), emit: patched_reference
     tuple val(meta), path('*.variantsignals.fasta'), emit: variant_signal
     tuple val(meta), path('*.fasta_summary_row.tsv'), emit: fasta_summary_row
-
-    conda "${projectDir}/environment/samtools_env.yml"
 
     script:
     def summaryPrefix = stage_name.startsWith('07_') ? 'L1' : stage_name.startsWith('09_') ? 'L2' : 'assembly'
@@ -728,14 +748,15 @@ EOF
 process NORMALISE_FOR_ASSEMBLY {
     tag { meta.id }
     publishDir "${params.outdir}/08_assembly", mode: 'symlink'
+    conda "${projectDir}/environment/samtools_env.yml"
+
+
 
     input:
     tuple val(meta), path(read1), path(read2)
 
     output:
     tuple val(meta), path("${meta.id}.R1.normalised.fastq.gz"), path("${meta.id}.R2.normalised.fastq.gz"), emit: pair
-
-    conda "${projectDir}/environment/samtools_env.yml"
 
     script:
     """
@@ -758,14 +779,15 @@ process NORMALISE_FOR_ASSEMBLY {
 process RUN_SPADES {
     tag { meta.id }
     publishDir "${params.outdir}/08_assembly", mode: 'copy'
+    conda "${projectDir}/environment/spades_env.yml"
+
+
 
     input:
     tuple val(meta), path(read1), path(read2)
 
     output:
     tuple val(meta), path('*.contigs.fasta'), emit: contigs
-
-    conda "${projectDir}/environment/spades_env.yml"
 
     script:
     """
@@ -794,14 +816,15 @@ EOF
 process ALIGN_ASSEMBLY_TO_REFERENCE {
     tag { meta.id }
     publishDir "${params.outdir}/08_assembly", mode: 'symlink'
+    conda "${projectDir}/environment/minimap2_env.yml"
+
+
 
     input:
     tuple val(meta), path(contigs), path(reference_fasta), path(reference_double)
 
     output:
     tuple val(meta), path('*.assembly.bam'), emit: bam
-
-    conda "${projectDir}/environment/minimap2_env.yml"
 
     script:
     def mappingRef = params.target_genome_type == 'circular' ? reference_double.getName() : reference_fasta.getName()
@@ -824,14 +847,15 @@ process PREPARE_PATCHED_REFERENCE {
     tag { meta.id }
     publishDir "${params.outdir}/08_assembly", mode: 'copy', pattern: '*.patchedref.original.fasta'
     publishDir "${params.outdir}/04_reference", mode: 'copy', pattern: '*.patchedref.fasta'
+    conda "${projectDir}/environment/samtools_env.yml"
+
+
 
     input:
     tuple val(meta), path(patched_reference, stageAs: 'input_patchedref.fasta')
 
     output:
     tuple val(meta), path('*.patchedref.original.fasta'), path('*.patchedref.fasta'), emit: refs
-
-    conda "${projectDir}/environment/samtools_env.yml"
 
     script:
     def prepCmd = params.target_genome_type == 'circular'
@@ -854,14 +878,15 @@ process PREPARE_PATCHED_REFERENCE {
 process L2_ALIGN {
     tag { meta.id }
     publishDir "${params.outdir}/09_L2_results", mode: 'copy'
+    conda "${projectDir}/environment/samtools_env.yml"
+
+
 
     input:
     tuple val(meta), path(read1), path(read2), path(original_reference), path(mapping_reference)
 
     output:
     tuple val(meta), path('*.L2.bam'), emit: bam
-
-    conda "${projectDir}/environment/samtools_env.yml"
 
     script:
     def dedupCmd = params.dedup
@@ -884,14 +909,15 @@ process L2_ALIGN {
 process BUILD_NT_COUNTS {
     tag { meta.id }
     publishDir "${params.outdir}/10_nonaligned_nt_counts", mode: 'copy'
+    conda "${projectDir}/environment/samtools_env.yml"
+
+
 
     input:
     tuple val(meta), path(ntfreq_csv)
 
     output:
     tuple val(meta), path('*.L2nt.csv'), emit: nt_csv
-
-    conda "${projectDir}/environment/samtools_env.yml"
 
     script:
     """
@@ -910,14 +936,15 @@ EOF
 process COUNT_Q40_PRIMARY_READS {
     tag { meta.id }
     label 'light'
+    conda "${projectDir}/environment/samtools_env.yml"
+
+
 
     input:
     tuple val(meta), path(bam)
 
     output:
     tuple val(meta), path('*.multi_q40.tsv'), emit: count_file
-
-    conda "${projectDir}/environment/samtools_env.yml"
 
     script:
     """
@@ -934,14 +961,15 @@ process COUNT_Q40_PRIMARY_READS {
 process WRITE_BEST_REFERENCE {
     tag { meta.id }
     label 'light'
+    conda "${projectDir}/environment/samtools_env.yml"
+
+
 
     input:
     tuple val(meta), path(selected_reference)
 
     output:
     tuple val(meta), path('*.best_ref.tsv'), emit: summary_file
-
-    conda "${projectDir}/environment/samtools_env.yml"
 
     script:
     """
@@ -961,14 +989,15 @@ process WRITE_BEST_REFERENCE {
 process DEPTH_AND_MASK {
     tag { "${meta.id}:${stage_name}" }
     publishDir({ "${params.outdir}/${stage_name}" }, mode: 'copy')
+    conda "${projectDir}/environment/samtools_env.yml"
+
+
 
     input:
     tuple val(meta), path(bam), path(original_reference), val(stage_name)
 
     output:
     tuple val(meta), path('*.depth.txt'), path('*.L*mask.bed'), emit: depth_mask
-
-    conda "${projectDir}/environment/samtools_env.yml"
 
     script:
     def maskName = stage_name.startsWith('07_') ? "${meta.id}.L1mask.bed" : stage_name.startsWith('09_') ? "${meta.id}.L2mask.bed" : "${meta.id}.mask.bed"
@@ -1001,14 +1030,15 @@ EOF
 process SUMMARISE_COVERAGE {
     tag { "${meta.id}:${stage_name}" }
     label 'light'
+    conda "${projectDir}/environment/plot_env.yml"
+
+
 
     input:
     tuple val(meta), path(depth_file), val(stage_name)
 
     output:
     tuple val(meta), path('*.coverage_row.tsv'), emit: coverage_row
-
-    conda "${projectDir}/environment/plot_env.yml"
 
     script:
     """
@@ -1028,6 +1058,9 @@ process SUMMARISE_COVERAGE {
 process BUILD_COVERAGE_PLOT {
     label 'light'
     publishDir "${params.outdir}/summary", mode: 'copy'
+    conda "${projectDir}/environment/plot_env.yml"
+
+
 
     input:
     path(depth_files)
@@ -1035,8 +1068,6 @@ process BUILD_COVERAGE_PLOT {
 
     output:
     path(output_name), emit: html
-
-    conda "${projectDir}/environment/plot_env.yml"
 
     script:
     def files = depth_files.collect { "\"${it.getName()}\"" }.join(' ')
@@ -1062,6 +1093,9 @@ process BCFTOOLS_VARIANTS {
         mode: 'copy',
         saveAs: { filename -> filename.endsWith('.variant_status.tsv') ? null : filename }
     )
+    conda "${projectDir}/environment/samtools_env.yml"
+
+
 
     input:
     tuple val(meta), path(bam), path(reference_fasta), path(mask_bed), val(stage_name)
@@ -1074,8 +1108,6 @@ process BCFTOOLS_VARIANTS {
     tuple val(meta), path('*.filter.vcf.gz'), emit: filter_vcf
     tuple val(meta), path('*.variant_status.tsv'), emit: status_file
     tuple val(meta), path('*.bcfseq_summary_row.tsv'), emit: fasta_summary_row
-
-    conda "${projectDir}/environment/samtools_env.yml"
 
     script:
     def summaryName = stage_name.startsWith('07_') ? "${meta.id}.07_bcfseq_summmary.tsv" : stage_name.startsWith('09_') ? "${meta.id}.09_bcfseq_summmary.tsv" : "${meta.id}.${stage_name}_bcfseq_summmary.tsv"
@@ -1124,14 +1156,15 @@ EOF
 process WRITE_VARIANT_STATUS_PLACEHOLDER {
     tag { "${meta.id}:${stage_name}" }
     label 'light'
+    conda "${projectDir}/environment/seqtk_env.yml"
+
+
 
     input:
     tuple val(meta), val(stage_name)
 
     output:
     tuple val(meta), path('*.variant_status.tsv'), emit: status_file
-
-    conda "${projectDir}/environment/seqtk_env.yml"
 
     script:
     """
@@ -1149,6 +1182,9 @@ process WRITE_VARIANT_STATUS_PLACEHOLDER {
 process MERGE_SUMMARY_TABLE {
     label 'light'
     publishDir "${params.outdir}/summary", mode: 'copy'
+    conda "${projectDir}/environment/seqtk_env.yml"
+
+
 
     input:
     path(count_files)
@@ -1157,8 +1193,6 @@ process MERGE_SUMMARY_TABLE {
 
     output:
     path(output_name), emit: summary
-
-    conda "${projectDir}/environment/seqtk_env.yml"
 
     script:
     def files = count_files.collect { "\"${it.getName()}\"" }.join(' ')
@@ -1180,6 +1214,9 @@ process MERGE_SUMMARY_TABLE {
 process MERGE_FASTA_COLLECTION {
     label 'light'
     publishDir "${params.outdir}/summary", mode: 'copy'
+    conda "${projectDir}/environment/seqtk_env.yml"
+
+
 
     input:
     path(fasta_files)
@@ -1187,8 +1224,6 @@ process MERGE_FASTA_COLLECTION {
 
     output:
     path(output_name), emit: fasta
-
-    conda "${projectDir}/environment/seqtk_env.yml"
 
     script:
     def files = fasta_files.collect { "\"${it.getName()}\"" }.join(' ')

@@ -245,31 +245,32 @@ def parseCsvLine(String line) {
     def values = []
     def current = new StringBuilder()
     boolean inQuotes = false
+    boolean skipNext = false
 
-    int i = 0
-    while( i < line.length() ) {
-        char ch = line.charAt(i)
+    line.toCharArray().eachWithIndex { ch, i ->
+        if( skipNext ) {
+            skipNext = false
+            return
+        }
+
         if( ch == '"' ) {
             if( inQuotes && i + 1 < line.length() && line.charAt(i + 1) == '"' ) {
                 current.append('"')
-                i++
+                skipNext = true
             }
             else {
                 inQuotes = !inQuotes
             }
-            i++
-            continue
+            return
         }
 
         if( ch == ',' && !inQuotes ) {
             values << current.toString().trim()
             current.setLength(0)
-            i++
-            continue
+            return
         }
 
         current.append(ch)
-        i++
     }
 
     values << current.toString().trim()
@@ -383,16 +384,16 @@ def validateParams() {
         throw new IllegalArgumentException("Parameter --threads must be >= 1. Received: ${params.threads}")
     }
 
-    params.bq_thr = (params.bq_thr ?: 13) as Integer
-    params.depth_thr = (params.depth_thr ?: 5) as Integer
-    params.qual_thr = (params.qual_thr ?: 30) as Integer
-    if( params.bq_thr < 0 ) {
+    def BQ_THR    = (params.bq_thr ?: 13).toString().toInteger()
+    def DEPTH_THR = (params.depth_thr ?: 5).toString().toInteger()
+    def QUAL_THR  = (params.qual_thr ?: 30).toString().toInteger()
+    if( BQ_THR < 0 ) {
         throw new IllegalArgumentException("Parameter --bq_thr must be >= 0. Received: ${params.bq_thr}")
     }
-    if( params.depth_thr < 0 ) {
+    if( DEPTH_THR < 0 ) {
         throw new IllegalArgumentException("Parameter --depth_thr must be >= 0. Received: ${params.depth_thr}")
     }
-    if( params.qual_thr < 0 ) {
+    if( QUAL_THR < 0 ) {
         throw new IllegalArgumentException("Parameter --qual_thr must be >= 0. Received: ${params.qual_thr}")
     }
     if( params.cleantmpdatasize_bytes < 0 ) {
@@ -454,16 +455,17 @@ def validateParams() {
     }
 }
 
-validateParams()
-def discoveredSamples = discoverInputPairs(params.inputcsv.toString())
-params.project_name = resolveProjectNameFromOutdir(params.outdir)
-
-log.info "Discovered ${discoveredSamples.size()} paired-end sample(s) from ${params.inputcsv}"
-discoveredSamples.each { sample ->
-    log.info " - ${sample.id} (${sample.sample_name}): ${sample.r1_original_name}, ${sample.r2_original_name}"
-}
-
 workflow {
+    main:
+    validateParams()
+    def discoveredSamples = discoverInputPairs(params.inputcsv.toString())
+    params.project_name = resolveProjectNameFromOutdir(params.outdir)
+
+    log.info "Discovered ${discoveredSamples.size()} paired-end sample(s) from ${params.inputcsv}"
+    discoveredSamples.each { sample ->
+        log.info " - ${sample.id} (${sample.sample_name}): ${sample.r1_original_name}, ${sample.r2_original_name}"
+    }
+
     // Step 1: build the primary input channel.
     // Output: tuples containing sample metadata plus the raw R1/R2 FASTQ paths.
     Channel
@@ -480,9 +482,8 @@ workflow {
     // Step 2: hand the normalized input channel to the production subworkflow.
     // Output: the full MLPS paired-end processing graph under the chosen outdir.
     MLPS_PE_PIPELINE(input_samples_ch)
-}
 
-workflow.onComplete {
+    onComplete:
     mergePublishedSummaryResults()
     exportPipelineCommandAudit()
     cleanupTemporaryTaskData()
