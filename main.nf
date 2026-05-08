@@ -246,7 +246,8 @@ def parseCsvLine(String line) {
     def current = new StringBuilder()
     boolean inQuotes = false
 
-    for( int i = 0; i < line.length(); i++ ) {
+    int i = 0
+    while( i < line.length() ) {
         char ch = line.charAt(i)
         if( ch == '"' ) {
             if( inQuotes && i + 1 < line.length() && line.charAt(i + 1) == '"' ) {
@@ -256,16 +257,19 @@ def parseCsvLine(String line) {
             else {
                 inQuotes = !inQuotes
             }
+            i++
             continue
         }
 
         if( ch == ',' && !inQuotes ) {
             values << current.toString().trim()
             current.setLength(0)
+            i++
             continue
         }
 
         current.append(ch)
+        i++
     }
 
     values << current.toString().trim()
