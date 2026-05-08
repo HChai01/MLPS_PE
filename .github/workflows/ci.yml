@@ -1,0 +1,70 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Install Nextflow
+        shell: bash
+        run: |
+          curl -s https://get.nextflow.io | bash
+          chmod +x nextflow
+
+      - name: Python syntax check
+        shell: bash
+        run: |
+          python -m py_compile build_sbatch.py python/*.py
+
+      - name: Nextflow config validation
+        shell: bash
+        run: |
+          ./nextflow config . -profile test,ci > /tmp/mlps_pe.config
+
+      - name: Linear stub smoke test
+        shell: bash
+        run: |
+          ./nextflow run main.nf \
+            -profile test,ci \
+            -stub-run \
+            -ansi-log false \
+            --remove_human no
+
+      - name: Prepare circular sample sheet
+        shell: bash
+        run: |
+          cat > /tmp/mlps_pe_circular.csv <<'EOF'
+          job_id,sample_name,r1_path,r2_path
+          circular001,HBV1,./test/circular/HBV1.R1.fastq.gz,./test/circular/HBV1.R2.fastq.gz
+          EOF
+
+      - name: Circular stub smoke test
+        shell: bash
+        run: |
+          ./nextflow run main.nf \
+            -profile test,ci \
+            -stub-run \
+            -ansi-log false \
+            --inputcsv /tmp/mlps_pe_circular.csv \
+            --outdir ./results/test_circular \
+            --target_reference ./reference/ref.HBV.04092023.fasta \
+            --target_genome_type circular \
+            --remove_human no

@@ -192,12 +192,14 @@ When `--cleantmpdata yes` is active, the shutdown finalizer also reads `pipeline
 
 GitHub Actions under `.github/workflows/ci.yml` currently performs:
 
-- repository sanity checks
+- repository checkout
+- Python setup
+- Java setup
 - Python syntax checking
 - Nextflow installation
 - config validation
-- linear stub smoke execution
-- circular stub smoke execution
+- paired-end linear stub smoke execution
+- paired-end circular stub smoke execution with a temporary circular sample sheet
 
 ## Current Validation Status
 
