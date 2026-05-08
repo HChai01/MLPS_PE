@@ -1,0 +1,12 @@
+name: bowtie2_env
+channels:
+  - bioconda
+  - conda-forge
+  - defaults
+dependencies:
+  - bowtie2
+  - python=3.10
+  - samtools
+  - pigz
+  - coreutils
+  - seqtk

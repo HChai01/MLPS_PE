@@ -1,0 +1,15 @@
+Pilot/
+.nextflow/
+.nextflow*
+.nf-test/
+work/
+results/
+logs/
+*.log
+*.trace
+*.timeline.html
+*.report.html
+*.dag.*
+nextflow
+__pycache__/
+.DS_Store

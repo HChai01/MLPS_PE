@@ -1,0 +1,13 @@
+name: plot_env
+channels:
+  - bioconda
+  - conda-forge
+  - defaults
+dependencies:
+  - matplotlib
+  - numpy
+  - pandas
+  - python=3.10
+  - seqtk
+  - seaborn
+  - plotly

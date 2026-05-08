@@ -1,0 +1,10 @@
+name: minimap2_env
+channels:
+  - bioconda
+  - conda-forge
+  - defaults
+dependencies:
+  - minimap2
+  - python=3.10
+  - samtools
+  - htslib

@@ -1,0 +1,17 @@
+name: samtools_env
+channels:
+  - bioconda
+  - conda-forge
+  - defaults
+dependencies:
+  - bcftools
+  - bwa
+  - htslib
+  - numpy
+  - pandas
+  - pip
+  - pysam
+  - python=3.10
+  - samtools
+  - seqtk
+  - biopython
