@@ -22,6 +22,10 @@ DEPENDENCIES:
 
 from __future__ import annotations
 
+# ========================================================================================
+# Imports
+# ========================================================================================
+
 import argparse
 import csv
 import logging
@@ -38,10 +42,19 @@ if str(PROJECT_ROOT) not in sys.path:
 from assets.utils_banner import print_header, print_summary, setup_logging
 
 
+# ========================================================================================
+# Configuration
+# ========================================================================================
+
 logger = setup_logging()
 
 
+# ========================================================================================
+# Helper Functions
+# ========================================================================================
+
 def build_parser() -> argparse.ArgumentParser:
+    """Build the CLI parser for coverage summarization."""
     parser = argparse.ArgumentParser(
         description="Calculate average and median coverage per reference.",
     )
@@ -83,6 +96,8 @@ def write_summary(
     sorted_references = sorted(average_coverage, key=lambda reference: average_coverage[reference], reverse=True)
     top_reference = sorted_references[0]
 
+    # Preserve all per-reference values in descending order so one summary row can
+    # still be inspected without needing the original depth table.
     average_string = ";".join(f"{reference}:{average_coverage[reference]:.6f}" for reference in sorted_references)
     median_string = ";".join(f"{reference}:{median_coverage[reference]:.6f}" for reference in sorted_references)
 
@@ -109,7 +124,12 @@ def write_summary(
     logger.info("Coverage summary appended to %s", output_path)
 
 
+# ========================================================================================
+# Main Entry Point
+# ========================================================================================
+
 def main() -> None:
+    """Parse CLI arguments and export the per-reference coverage summary."""
     args = build_parser().parse_args()
     input_path = Path(args.input)
     if not input_path.is_file():

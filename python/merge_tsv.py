@@ -20,6 +20,10 @@ DEPENDENCIES:
 
 from __future__ import annotations
 
+# ========================================================================================
+# Imports
+# ========================================================================================
+
 import argparse
 import csv
 import logging
@@ -34,10 +38,19 @@ if str(PROJECT_ROOT) not in sys.path:
 from assets.utils_banner import print_header, print_summary, setup_logging
 
 
+# ========================================================================================
+# Configuration
+# ========================================================================================
+
 logger = setup_logging()
 
 
+# ========================================================================================
+# Helper Functions
+# ========================================================================================
+
 def build_parser() -> argparse.ArgumentParser:
+    """Build the CLI parser for TSV merging."""
     parser = argparse.ArgumentParser(
         description="Merge all TSV files in a folder by a shared ID column.",
     )
@@ -106,7 +119,12 @@ def merge_tsv_files(input_dir: Path, id_column: str, output_tsv: Path) -> None:
     logger.info("Merged TSV written to %s", output_tsv)
 
 
+# ========================================================================================
+# Main Entry Point
+# ========================================================================================
+
 def main() -> None:
+    """Parse CLI arguments and merge the TSV files in the input directory."""
     args = build_parser().parse_args()
     if not args.indir.is_dir():
         raise SystemExit(f"--indir is not a directory: {args.indir}")

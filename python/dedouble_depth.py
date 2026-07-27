@@ -20,6 +20,10 @@ DEPENDENCIES:
 
 from __future__ import annotations
 
+# ========================================================================================
+# Imports
+# ========================================================================================
+
 import argparse
 import logging
 import sys
@@ -34,10 +38,19 @@ if str(PROJECT_ROOT) not in sys.path:
 from assets.utils_banner import print_header, print_summary, setup_logging
 
 
+# ========================================================================================
+# Configuration
+# ========================================================================================
+
 logger = setup_logging()
 
 
+# ========================================================================================
+# Helper Functions
+# ========================================================================================
+
 def build_parser() -> argparse.ArgumentParser:
+    """Build the CLI parser for doubled-reference depth collapse."""
     parser = argparse.ArgumentParser(
         description=(
             "Dedouble a samtools depth -a file produced from a reference where each contig "
@@ -117,7 +130,8 @@ def dedouble_depth_file(input_path: Path, original_ref: Path, output_path: Path)
                 current_length = contig_length
                 combined_depths = [0] * (contig_length + 1)
 
-            # Collapse depth from both halves of the doubled reference back to the original coordinate.
+            # Fold the duplicated coordinate space back onto the original contig length
+            # so positions from the first and second halves accumulate together.
             target_position = ((position - 1) % contig_length) + 1
             assert combined_depths is not None
             combined_depths[target_position] += depth
@@ -128,7 +142,12 @@ def dedouble_depth_file(input_path: Path, original_ref: Path, output_path: Path)
     logger.info("Dedoubled depth file written to %s", output_path)
 
 
+# ========================================================================================
+# Main Entry Point
+# ========================================================================================
+
 def main() -> None:
+    """Parse CLI arguments and collapse the doubled depth table."""
     args = build_parser().parse_args()
     input_path = Path(args.input)
     original_ref = Path(args.originalref)

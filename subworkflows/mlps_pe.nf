@@ -74,11 +74,12 @@ include {
     MERGE_FASTA_COLLECTION as MERGE_L2_CALLEDBASES_FASTA;
     MERGE_FASTA_COLLECTION as MERGE_L2_CONSENSUS_FASTA;
     MERGE_FASTA_COLLECTION as MERGE_L2_BCF_FASTA
-} from '../modules/local/mlps_se_processes'
+} from '../modules/local/mlps_pe_processes'
 
 workflow MLPS_PE_PIPELINE {
     take:
     input_samples
+    primer_files
 
     main:
     project_name = new File(params.outdir.toString()).name
@@ -104,7 +105,11 @@ workflow MLPS_PE_PIPELINE {
     postsub_counts = COUNT_POSTSUB_READS(
         subsampled_fastqs.pair.map { meta, read1, read2 -> tuple(meta, read1, read2, '02_postSUB_read_counts') }
     )
-    adapter_trimmed_fastqs = ADAPTER_TRIM(subsampled_fastqs.pair)
+    adapter_trimmed_fastqs = ADAPTER_TRIM(
+        subsampled_fastqs.pair
+            .combine(primer_files)
+            .map { meta, read1, read2, fwdPrimer, revPrimer -> tuple(meta, read1, read2, fwdPrimer, revPrimer) }
+    )
     postat_counts = COUNT_POSTAT_READS(
         adapter_trimmed_fastqs.pair.map { meta, read1, read2 -> tuple(meta, read1, read2, '03_postAT_read_counts') }
     )

@@ -22,6 +22,10 @@ DEPENDENCIES:
 
 from __future__ import annotations
 
+# ========================================================================================
+# Imports
+# ========================================================================================
+
 import argparse
 import logging
 import sys
@@ -39,10 +43,19 @@ if str(PROJECT_ROOT) not in sys.path:
 from assets.utils_banner import print_header, print_summary, setup_logging
 
 
+# ========================================================================================
+# Configuration
+# ========================================================================================
+
 logger = setup_logging()
 
 
+# ========================================================================================
+# Helper Functions
+# ========================================================================================
+
 def build_parser() -> argparse.ArgumentParser:
+    """Build the CLI parser for interactive coverage plotting."""
     parser = argparse.ArgumentParser(
         description="Generate an interactive combined coverage plot from samtools depth files.",
     )
@@ -57,6 +70,8 @@ def transform_depths(depths: np.ndarray, yaxis_mode: str) -> tuple[np.ndarray, s
     if yaxis_mode == "raw":
         return depths, "Depth"
     if yaxis_mode == "log10":
+        # Replace zeros with a small pseudo-count so log scaling keeps uncovered
+        # positions visible instead of dropping them as negative infinity.
         return np.log10(np.where(depths == 0, 0.1, depths)), "log10(Depth)"
     raise ValueError(f"Unsupported y-axis mode: {yaxis_mode}")
 
@@ -129,7 +144,12 @@ def plot_combined(input_dir: Path, output_path: Path, yaxis_mode: str) -> Path |
     return output_path
 
 
+# ========================================================================================
+# Main Entry Point
+# ========================================================================================
+
 def main() -> None:
+    """Parse CLI arguments and render the combined interactive plot."""
     args = build_parser().parse_args()
     input_dir = Path(args.indir)
     if not input_dir.is_dir():

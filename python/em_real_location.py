@@ -22,6 +22,10 @@ DEPENDENCIES:
 
 from __future__ import annotations
 
+# ========================================================================================
+# Imports
+# ========================================================================================
+
 import argparse
 import logging
 import math
@@ -39,10 +43,19 @@ if str(PROJECT_ROOT) not in sys.path:
 from assets.utils_banner import print_header, print_summary, setup_logging
 
 
+# ========================================================================================
+# Configuration
+# ========================================================================================
+
 logger = setup_logging()
 
 
+# ========================================================================================
+# Helper Functions
+# ========================================================================================
+
 def build_parser() -> argparse.ArgumentParser:
+    """Build the CLI parser for EM-based multi-mapper reallocation."""
     parser = argparse.ArgumentParser(
         description="Reallocate multi-mapped reads across references with EM.",
     )
@@ -64,6 +77,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def load_bam_alignments(bam_path: Path) -> tuple[dict[str, list[dict[str, int | str | None]]], list[str]]:
+    """Load mapped BAM alignments and capture the fields needed by the EM model."""
     reads: dict[str, list[dict[str, int | str | None]]] = defaultdict(list)
     reference_names: set[str] = set()
 
@@ -99,6 +113,7 @@ def load_bam_alignments(bam_path: Path) -> tuple[dict[str, list[dict[str, int | 
 
 
 def score_alignment_info(alignment: dict[str, int | str | None]) -> tuple[float, float, float, float]:
+    """Return a sortable tuple that prefers stronger alignments for each reference."""
     as_score = float(alignment["AS"]) if alignment["AS"] is not None else -1e9
     nm_score = -float(alignment["NM"]) if alignment["NM"] is not None else -1e9
     mapq_score = float(alignment["MAPQ"]) if alignment["MAPQ"] is not None else 0.0
@@ -115,6 +130,7 @@ def compute_likelihood(
     gamma: float,
     power_x: float,
 ) -> float:
+    """Compute one alignment likelihood under the selected scoring model."""
     as_score = float(alignment["AS"]) if alignment["AS"] is not None else 0.0
     nm_score = float(alignment["NM"]) if alignment["NM"] is not None else 0.0
     mapq_score = float(alignment["MAPQ"]) if alignment["MAPQ"] is not None else 0.0
@@ -145,6 +161,7 @@ def run_em(
     model: str,
     power_x: float,
 ) -> tuple[dict[str, float], dict[str, dict[str, float]]]:
+    """Run expectation-maximization to estimate per-reference read abundances."""
     abundances = {reference: 1.0 / len(reference_names) for reference in reference_names}
     posteriors: dict[str, dict[str, float]] = defaultdict(dict)
 
@@ -158,6 +175,8 @@ def run_em(
 
             likelihoods: list[tuple[str, float]] = []
             for reference, entries in grouped.items():
+                # Multiple alignments to the same reference are reduced to the strongest
+                # representative so the EM step weights references rather than duplicates.
                 best_alignment = max(entries, key=score_alignment_info)
                 likelihood = compute_likelihood(
                     abundances[reference],
@@ -198,6 +217,7 @@ def save_outputs(
     reads: dict[str, list[dict[str, int | str | None]]],
     output_path: Path,
 ) -> None:
+    """Write per-read posteriors and the reference-level abundance summary."""
     total_reads = len(reads)
     with output_path.open("w", encoding="utf-8") as handle:
         handle.write("read_id\tref\tposterior\n")
@@ -216,7 +236,12 @@ def save_outputs(
     logger.info("Saved reference summary to %s", summary_path)
 
 
+# ========================================================================================
+# Main Entry Point
+# ========================================================================================
+
 def main() -> None:
+    """Parse CLI arguments, run EM, and export the resulting assignments."""
     args = build_parser().parse_args()
     bam_path = Path(args.bam)
     if not bam_path.is_file():

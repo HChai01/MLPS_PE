@@ -18,6 +18,10 @@ DEPENDENCIES:
 
 from __future__ import annotations
 
+# ========================================================================================
+# Imports
+# ========================================================================================
+
 import getpass
 import logging
 import socket
@@ -25,15 +29,13 @@ import sys
 import time
 from pathlib import Path
 
-# --- Add-ons ------------------------------------------------------------------
-# if __name__ == "__main__":
-#   start_time = time.time()
-#   print_header()
-#   main()
-#   print_summary(start_time)
+# ========================================================================================
+# Constants
+# ========================================================================================
 
-# --- ANSI Color Scheme --------------------------------------------------------
 class UBColors:
+    """ANSI escape sequences used by the shared CLI logging helpers."""
+
     NC = "\033[0m"
     BLACK = "\033[0;30m"
     RED = "\033[0;31m"
@@ -45,13 +47,10 @@ class UBColors:
     WHITE = "\033[0;37m"
     GREY = "\033[1;30m"
 
-# --- UBColors Colour Scheme ------------------------------------------------------------
-# DEBUG:{UBColors.GREY}
-# INFO:{UBColors.CYAN}
-# WARNING:{UBColors.YELLOW}
-# ERROR:{UBColors.RED},CRITICAL:{UBColors.RED}
+# ========================================================================================
+# Helper Functions
+# ========================================================================================
 
-# --- Functions ----------------------------------------------------------------
 def setup_logging(level: int = logging.INFO) -> logging.Logger:
     """Configure a consistent logger for the project scripts."""
     root = logging.getLogger()
@@ -65,11 +64,14 @@ def setup_logging(level: int = logging.INFO) -> logging.Logger:
     )
     return logging.getLogger(__name__)
 
+
 def get_project_root(current_file: str | Path) -> Path:
     """Return the repository root for a script living under `python/` or `assets/`."""
     return Path(current_file).resolve().parents[1]
 
+
 def print_header(script_name: str = "MLPS utility script") -> None:
+    """Log a standard execution banner at the start of a helper script."""
     logging.info("=" * 60)
     logging.info("        %s", script_name)
     logging.info("=" * 60)
@@ -79,12 +81,15 @@ def print_header(script_name: str = "MLPS utility script") -> None:
     logging.info("Working dir: %s", Path.cwd())
     logging.info("=" * 60)
 
+
 def print_summary(start_time: float, script_name: str = "MLPS utility script") -> None:
+    """Log the elapsed runtime summary for a helper script."""
     runtime = time.time() - start_time
     logging.info("")
     logging.info("=" * 60)
     logging.info("%s completed in %.2f seconds", script_name, runtime)
     logging.info("=" * 60)
+
 
 def parse_yes_no(value: str | bool, *, param_name: str = "value") -> bool:
     """Parse yes/no style CLI flags used across the legacy helper scripts."""
@@ -96,6 +101,11 @@ def parse_yes_no(value: str | bool, *, param_name: str = "value") -> bool:
     if normalised in {"no", "false", "0"}:
         return False
     raise ValueError(f"{param_name} must be yes/no or true/false, received: {value}")
+
+
+# ========================================================================================
+# Public Exports
+# ========================================================================================
 
 __all__ = [
     "UBColors",

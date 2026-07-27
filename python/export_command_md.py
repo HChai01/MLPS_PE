@@ -9,6 +9,10 @@ Version:      ver.2026-04-12
 
 from __future__ import annotations
 
+# ========================================================================================
+# Imports
+# ========================================================================================
+
 import argparse
 import csv
 import sys
@@ -22,10 +26,19 @@ if str(PROJECT_ROOT) not in sys.path:
 from assets.utils_banner import print_header, print_summary, setup_logging
 
 
+# ========================================================================================
+# Configuration
+# ========================================================================================
+
 logger = setup_logging()
 
 
+# ========================================================================================
+# Helper Functions
+# ========================================================================================
+
 def build_parser() -> argparse.ArgumentParser:
+    """Build the CLI parser for command-audit export."""
     parser = argparse.ArgumentParser(
         description="Export Nextflow .command.sh files into one Markdown document.",
     )
@@ -37,6 +50,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def read_trace_rows(trace_path: Path) -> list[dict[str, str]]:
+    """Load traced task rows when a Nextflow trace file is available."""
     if not trace_path.exists():
         logger.warning("Trace file not found: %s", trace_path)
         return []
@@ -51,6 +65,7 @@ def read_trace_rows(trace_path: Path) -> list[dict[str, str]]:
 
 
 def build_trace_entries(rows: list[dict[str, str]], workdir: Path) -> list[dict[str, str | Path]]:
+    """Map traced task metadata onto the corresponding `.command.sh` files."""
     entries: list[dict[str, str | Path]] = []
     for row in rows:
         task_hash = (row.get("hash") or "").strip()
@@ -80,6 +95,7 @@ def build_trace_entries(rows: list[dict[str, str]], workdir: Path) -> list[dict[
 
 
 def build_fallback_entries(workdir: Path) -> list[dict[str, str | Path]]:
+    """Scan the work tree directly when no usable trace metadata is available."""
     command_paths = sorted(
         workdir.glob("*/*/.command.sh"),
         key=lambda path: path.stat().st_mtime,
@@ -104,10 +120,12 @@ def build_fallback_entries(workdir: Path) -> list[dict[str, str | Path]]:
 
 
 def load_command_text(command_path: Path) -> str:
+    """Read a task command script, substituting a placeholder for empty files."""
     return command_path.read_text(encoding="utf-8").rstrip() or "# Empty .command.sh"
 
 
 def write_markdown(output_path: Path, project_name: str, entries: list[dict[str, str | Path]]) -> None:
+    """Write one Markdown report that captures all discovered task commands."""
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     lines = [
@@ -142,7 +160,12 @@ def write_markdown(output_path: Path, project_name: str, entries: list[dict[str,
     output_path.write_text("\n".join(lines), encoding="utf-8")
 
 
+# ========================================================================================
+# Main Entry Point
+# ========================================================================================
+
 def main() -> None:
+    """Export the command audit using trace metadata when possible."""
     args = build_parser().parse_args()
 
     trace_rows = read_trace_rows(args.trace)

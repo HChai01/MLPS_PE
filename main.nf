@@ -1,6 +1,15 @@
 nextflow.enable.dsl = 2
 
-include { MLPS_PE_PIPELINE } from './subworkflows/mlps_se'
+// ========================================================================================
+// Workflow Imports
+// ========================================================================================
+
+include { MLPS_PE_PIPELINE } from './subworkflows/mlps_pe'
+
+
+// ========================================================================================
+// Parameter Parsing Helpers
+// ========================================================================================
 
 // Parse yes/no style CLI flags into strict booleans before the workflow starts.
 def parseBoolParam(value, name) {
@@ -17,6 +26,8 @@ def parseBoolParam(value, name) {
     throw new IllegalArgumentException("Parameter --${name} must be yes/no or true/false. Received: ${value}")
 }
 
+// Normalize human-readable byte sizes so the Python cleanup helper receives a
+// concrete integer threshold regardless of how the user expressed the value.
 def parseSizeParam(value, name) {
     def normalized = value?.toString()?.trim()?.toUpperCase()
     if( !normalized ) {
@@ -40,6 +51,8 @@ def parseSizeParam(value, name) {
     return amount * multiplier
 }
 
+// Canonicalize path-style parameters up front so the workflow logs and all
+// downstream helpers see the same resolved filesystem location.
 def resolvePathParam(value, name, boolean mustExist = true) {
     if( value == null ) {
         if( mustExist ) {
@@ -63,6 +76,79 @@ def resolveProjectNameFromOutdir(outdirValue) {
     def resolvedOutdir = new File(outdirValue.toString()).getCanonicalFile()
     return resolvedOutdir.name
 }
+
+def isValidPrimerFasta(value) {
+    if( value == null ) {
+        return false
+    }
+
+    def normalized = value.toString().trim()
+    if( !normalized || normalized.equalsIgnoreCase('null') ) {
+        return false
+    }
+
+    def primerFile = new File(normalized).getCanonicalFile()
+    if( !primerFile.exists() || !primerFile.isFile() ) {
+        return false
+    }
+
+    boolean hasHeader = false
+    boolean hasSequence = false
+    primerFile.eachLine { rawLine ->
+        if( hasSequence ) {
+            return
+        }
+
+        def line = rawLine.trim()
+        if( !line ) {
+            return
+        }
+
+        if( !hasHeader ) {
+            hasHeader = line.startsWith('>')
+        }
+        else if( !line.startsWith('>') ) {
+            hasSequence = true
+        }
+    }
+
+    return hasHeader && hasSequence
+}
+
+// Resolve primer files for different input
+def resolvePrimerFastaParams(fwdValue, revValue) {
+    def dummyPrimer = new File(projectDir.toString(), 'reference/dummy_primer.fasta').getCanonicalFile()
+    if( !dummyPrimer.exists() || !dummyPrimer.isFile() ) {
+        throw new IllegalArgumentException("Default dummy primer FASTA was not found: ${dummyPrimer.absolutePath}")
+    }
+
+    def resolvedFwd = fwdValue ? new File(fwdValue.toString()).getCanonicalFile().absolutePath : null
+    def resolvedRev = revValue ? new File(revValue.toString()).getCanonicalFile().absolutePath : null
+    def fwdValid = isValidPrimerFasta(fwdValue)
+    def revValid = isValidPrimerFasta(revValue)
+
+    if( fwdValid && revValid ) {
+        return [fwd_primer_seq: resolvedFwd, rev_primer_seq: resolvedRev]
+    }
+
+    if( fwdValid && !revValid ) {
+        log.warn "Parameter --rev_primer_seq is missing or invalid. Falling back to --fwd_primer_seq for both primer inputs."
+        return [fwd_primer_seq: resolvedFwd, rev_primer_seq: resolvedFwd]
+    }
+
+    if( !fwdValid && revValid ) {
+        log.warn "Parameter --fwd_primer_seq is missing or invalid while --rev_primer_seq is valid. Falling back to ${dummyPrimer.absolutePath} for both primer inputs."
+        return [fwd_primer_seq: dummyPrimer.absolutePath, rev_primer_seq: dummyPrimer.absolutePath]
+    }
+
+    log.warn "Primer FASTA inputs are missing or invalid. Falling back to ${dummyPrimer.absolutePath} for both primer inputs."
+    return [fwd_primer_seq: dummyPrimer.absolutePath, rev_primer_seq: dummyPrimer.absolutePath]
+}
+
+
+// ========================================================================================
+// Workflow Finalizers
+// ========================================================================================
 
 // Always attempt to merge the published summary TSVs into one project-level table
 // when the workflow terminates, even if execution ended in failure after some samples passed.
@@ -241,6 +327,13 @@ def cleanupTemporaryTaskData() {
     }
 }
 
+
+// ========================================================================================
+// Input Discovery Helpers
+// ========================================================================================
+
+// Parse one CSV line while preserving commas embedded inside quoted fields so the
+// workflow can accept sample sheets exported from spreadsheet applications.
 def parseCsvLine(String line) {
     def values = []
     def current = new StringBuilder()
@@ -278,6 +371,8 @@ def parseCsvLine(String line) {
 }
 
 def resolveInputReadPath(String value, String columnName, int rowNumber, File baseDir) {
+    // Resolve relative FASTQ paths against the sample-sheet directory so the same
+    // input CSV works whether the workflow is launched locally or from SBATCH wrappers.
     if( !value ) {
         throw new IllegalArgumentException("Row ${rowNumber} in --inputcsv is missing ${columnName}")
     }
@@ -291,6 +386,7 @@ def resolveInputReadPath(String value, String columnName, int rowNumber, File ba
 }
 
 def discoverInputPairs(String inputCsvPath) {
+    // Ignore blank and comment lines so operational notes can live beside the sample sheet.
     def inputCsv = new File(inputCsvPath)
     def csvDir = inputCsv.getCanonicalFile().parentFile
     def lines = inputCsv.readLines('UTF-8')
@@ -361,12 +457,20 @@ def discoverInputPairs(String inputCsvPath) {
     return samples
 }
 
+
+// ========================================================================================
+// Workflow Validation
+// ========================================================================================
+
 // Validate user parameters early so the workflow fails with a clear message
 // before expensive processing begins.
 def validateParams() {
     params.inputcsv = resolvePathParam(params.inputcsv, 'inputcsv')
     params.outdir = resolvePathParam(params.outdir ?: 'results', 'outdir', false)
     params.target_reference = resolvePathParam(params.target_reference, 'target_reference')
+    def resolvedPrimers = resolvePrimerFastaParams(params.fwd_primer_seq, params.rev_primer_seq)
+    params.fwd_primer_seq = resolvedPrimers.fwd_primer_seq
+    params.rev_primer_seq = resolvedPrimers.rev_primer_seq
 
     params.dedup = parseBoolParam(params.dedup, 'dedup')
     params.remove_human = parseBoolParam(params.remove_human, 'remove_human')
@@ -455,9 +559,15 @@ def validateParams() {
     }
 }
 
+
+// ========================================================================================
+// Workflow Definition
+// ========================================================================================
+
 workflow {
     main:
     validateParams()
+    def primerPaths = resolvePrimerFastaParams(params.fwd_primer_seq, params.rev_primer_seq)
     def discoveredSamples = discoverInputPairs(params.inputcsv.toString())
     params.project_name = resolveProjectNameFromOutdir(params.outdir)
 
@@ -479,9 +589,13 @@ workflow {
         }
         .set { input_samples_ch }
 
+    Channel
+        .value(tuple(file(primerPaths.fwd_primer_seq), file(primerPaths.rev_primer_seq)))
+        .set { primer_files_ch }
+
     // Step 2: hand the normalized input channel to the production subworkflow.
     // Output: the full MLPS paired-end processing graph under the chosen outdir.
-    MLPS_PE_PIPELINE(input_samples_ch)
+    MLPS_PE_PIPELINE(input_samples_ch, primer_files_ch)
 
     onComplete:
     mergePublishedSummaryResults()

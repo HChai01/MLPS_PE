@@ -19,6 +19,10 @@ DEPENDENCIES:
 
 from __future__ import annotations
 
+# ========================================================================================
+# Imports
+# ========================================================================================
+
 import argparse
 import logging
 import sys
@@ -32,10 +36,19 @@ if str(PROJECT_ROOT) not in sys.path:
 from assets.utils_banner import print_header, print_summary, setup_logging
 
 
+# ========================================================================================
+# Configuration
+# ========================================================================================
+
 logger = setup_logging()
 
 
+# ========================================================================================
+# Helper Functions
+# ========================================================================================
+
 def build_parser() -> argparse.ArgumentParser:
+    """Build the CLI parser for low-depth BED masking."""
     parser = argparse.ArgumentParser(
         description="Mask positions below a depth threshold and export them as BED intervals.",
     )
@@ -73,7 +86,12 @@ def mask_depth(input_path: Path, threshold: float, output_path: Path) -> int:
     return masked_sites
 
 
+# ========================================================================================
+# Main Entry Point
+# ========================================================================================
+
 def main() -> None:
+    """Parse CLI arguments and convert low-depth positions into BED intervals."""
     args = build_parser().parse_args()
     input_path = Path(args.input)
     output_path = Path(args.output)

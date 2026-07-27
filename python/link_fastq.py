@@ -20,6 +20,10 @@ DEPENDENCIES:
 
 from __future__ import annotations
 
+# ========================================================================================
+# Imports
+# ========================================================================================
+
 import argparse
 import logging
 import os
@@ -34,10 +38,19 @@ if str(PROJECT_ROOT) not in sys.path:
 from assets.utils_banner import print_header, print_summary, setup_logging
 
 
+# ========================================================================================
+# Configuration
+# ========================================================================================
+
 logger = setup_logging()
 
 
+# ========================================================================================
+# Helper Functions
+# ========================================================================================
+
 def build_parser() -> argparse.ArgumentParser:
+    """Build the CLI parser for FASTQ symlink creation."""
     parser = argparse.ArgumentParser(
         description="Create symlinks for .fastq.gz and .fq.gz inputs using canonical FASTQ names.",
     )
@@ -88,7 +101,12 @@ def create_symlinks(input_dir: Path, output_dir: Path) -> None:
         create_symlink(fastq_file, output_path)
 
 
+# ========================================================================================
+# Main Entry Point
+# ========================================================================================
+
 def main() -> None:
+    """Parse CLI arguments and create the canonical FASTQ symlink set."""
     args = build_parser().parse_args()
     create_symlinks(Path(args.inDir), Path(args.outDir))
 

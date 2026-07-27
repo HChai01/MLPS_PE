@@ -23,6 +23,10 @@ DEPENDENCIES:
 
 from __future__ import annotations
 
+# ========================================================================================
+# Imports
+# ========================================================================================
+
 import argparse
 import csv
 import gzip
@@ -40,10 +44,19 @@ if str(PROJECT_ROOT) not in sys.path:
 from assets.utils_banner import print_header, print_summary, setup_logging
 
 
+# ========================================================================================
+# Configuration
+# ========================================================================================
+
 logger = setup_logging()
 
 
+# ========================================================================================
+# Helper Functions
+# ========================================================================================
+
 def build_parser() -> argparse.ArgumentParser:
+    """Build the CLI parser for VCF summary extraction."""
     parser = argparse.ArgumentParser(
         description="Extract CHROM, POS, REF, ALT, QUAL, DP, DP4, allele frequency, and error rate from a VCF.",
     )
@@ -175,7 +188,12 @@ def extract_vcf_rows(input_path: Path, output_path: Path) -> None:
     logger.info("VCF summary written to %s", output_path)
 
 
+# ========================================================================================
+# Main Entry Point
+# ========================================================================================
+
 def main() -> None:
+    """Parse CLI arguments and export the selected VCF fields."""
     args = build_parser().parse_args()
     input_path = Path(args.input)
     output_path = Path(args.outputtsv)

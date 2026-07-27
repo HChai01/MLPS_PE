@@ -53,7 +53,7 @@ jobs:
         run: |
           cat > /tmp/mlps_pe_circular.csv <<'EOF'
           job_id,sample_name,r1_path,r2_path
-          circular001,HBV1,./test/circular/HBV1.R1.fastq.gz,./test/circular/HBV1.R2.fastq.gz
+          circular001,HBV1,${{ github.workspace }}/test/circular/HBV1.R1.fastq.gz,${{ github.workspace }}/test/circular/HBV1.R2.fastq.gz
           EOF
 
       - name: Circular stub smoke test

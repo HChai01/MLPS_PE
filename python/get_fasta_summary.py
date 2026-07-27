@@ -21,6 +21,10 @@ DEPENDENCIES:
 
 from __future__ import annotations
 
+# ========================================================================================
+# Imports
+# ========================================================================================
+
 import argparse
 import csv
 import gzip
@@ -36,6 +40,10 @@ if str(PROJECT_ROOT) not in sys.path:
 from assets.utils_banner import print_header, print_summary, setup_logging
 
 
+# ========================================================================================
+# Configuration
+# ========================================================================================
+
 logger = setup_logging()
 EXPECTED_HEADER_TEMPLATE = [
     "sample",
@@ -46,7 +54,12 @@ EXPECTED_HEADER_TEMPLATE = [
 ]
 
 
+# ========================================================================================
+# Helper Functions
+# ========================================================================================
+
 def build_parser() -> argparse.ArgumentParser:
+    """Build the CLI parser for FASTA composition summarization."""
     parser = argparse.ArgumentParser(
         description="Summarize FASTA sequence composition.",
     )
@@ -170,7 +183,12 @@ def write_summary(output_path: Path, prefix: str, row: list[str]) -> None:
     logger.info("FASTA summary written to %s", output_path)
 
 
+# ========================================================================================
+# Main Entry Point
+# ========================================================================================
+
 def main() -> None:
+    """Parse CLI arguments and export the FASTA composition summary."""
     args = build_parser().parse_args()
     input_path = Path(args.input)
     output_path = Path(args.outputtsv)

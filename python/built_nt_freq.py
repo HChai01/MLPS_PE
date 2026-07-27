@@ -20,6 +20,10 @@ DEPENDENCIES:
 
 from __future__ import annotations
 
+# ========================================================================================
+# Imports
+# ========================================================================================
+
 import argparse
 import logging
 import sys
@@ -35,10 +39,19 @@ if str(PROJECT_ROOT) not in sys.path:
 from assets.utils_banner import print_header, print_summary, setup_logging
 
 
+# ========================================================================================
+# Configuration
+# ========================================================================================
+
 logger = setup_logging()
 
 
+# ========================================================================================
+# Helper Functions
+# ========================================================================================
+
 def build_parser() -> argparse.ArgumentParser:
+    """Build the CLI parser for nt-frequency table expansion."""
     parser = argparse.ArgumentParser(
         description="Expand nt-frequency CSV rows into long-form nucleotide count records.",
     )
@@ -48,6 +61,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def expand_nt_counts(input_path: Path, output_path: Path) -> None:
+    """Convert wide nucleotide count rows into one record per observed base."""
     dataframe = pd.read_csv(input_path)
     records: list[dict[str, object]] = []
 
@@ -56,6 +70,8 @@ def expand_nt_counts(input_path: Path, output_path: Path) -> None:
         total_acgt = sum(counts.values())
         depth = int(row["Depth"])
 
+        # Preserve positions with zero aligned A/C/G/T support so downstream reports
+        # can distinguish empty sites from missing rows.
         if total_acgt == 0:
             records.append(
                 {
@@ -86,7 +102,12 @@ def expand_nt_counts(input_path: Path, output_path: Path) -> None:
     logger.info("Expanded nucleotide counts written to %s", output_path)
 
 
+# ========================================================================================
+# Main Entry Point
+# ========================================================================================
+
 def main() -> None:
+    """Parse CLI arguments and expand the nucleotide-frequency table."""
     args = build_parser().parse_args()
     expand_nt_counts(Path(args.input), Path(args.output))
 

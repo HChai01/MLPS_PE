@@ -23,49 +23,46 @@ DEPENDENCIES:
     - assets.utils_banner (project module)
 """
 
-# --- Add-ons ------------------------------------------------------------------
-# Add banner unit
+# ========================================================================================
+# Imports
+# ========================================================================================
+
 import argparse
+import gzip
 import logging
+import re
 import sys
 import time
+from io import StringIO
+from math import ceil, floor
 from pathlib import Path
+
+import matplotlib as mpl
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+from matplotlib.ticker import MultipleLocator, NullFormatter, ScalarFormatter
+
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
+
 from assets.utils_banner import print_header, print_summary, setup_logging
 
-import re
-import gzip
-from io import StringIO
 
-import numpy as np
-import pandas as pd
-import matplotlib as mpl
-import matplotlib.pyplot as plt
-from math import ceil, floor
-from matplotlib.ticker import MultipleLocator, NullFormatter, ScalarFormatter
-
-# def main():
-#   parser = get_parser()
-#   args = parser.parse_args()
-# if __name__ == "__main__":
-#   start_time = time.time()
-#   print_header()
-#   main()
-#   print_summary(start_time)
+# ========================================================================================
+# Configuration
+# ========================================================================================
 
 logger = setup_logging()
 
-# --- Colour Scheme ------------------------------------------------------------
-# DEBUG:{UBColors.GREY}
-# INFO:{UBColors.CYAN}
-# WARNING:{UBColors.YELLOW}
-# ERROR:{UBColors.RED},CRITICAL:{UBColors.RED}
 
-# --- Functions ----------------------------------------------------------------
-# Create and return the command-line argument parser
+# ========================================================================================
+# Helper Functions
+# ========================================================================================
+
 def get_parser():
+    """Build the CLI parser for seqtk `fqchk` QC plotting."""
     parser = argparse.ArgumentParser(
         description="Draw QC plots from seqtk fqchk TSV output.",
         epilog="""
@@ -82,11 +79,11 @@ Usage example:
     return parser
 
 def choose_col(df, candidates):
-    # exact matches first
+    """Pick the first matching column name, allowing for minor label variations."""
+    # Prefer exact column names before falling back to normalized comparisons.
     for c in candidates:
         if c in df.columns:
             return c
-    # relaxed matching
     norm = {x.lower().replace("%", "").replace("#", "").strip(): x for x in df.columns}
     for c in candidates:
         key = c.lower().replace("%", "").replace("#", "").strip()
@@ -94,8 +91,8 @@ def choose_col(df, candidates):
             return norm[key]
     return None
 
-# Locate POS header line
 def read_file_find_table(path):
+    """Locate the `POS` table inside `fqchk` output and return its summary header."""
     p = Path(path)
     opener = gzip.open if p.suffix.lower() in (".gz", ".gzip") else open
     with opener(path, "rt", encoding="utf-8", errors="replace") as fh:
@@ -118,8 +115,8 @@ def read_file_find_table(path):
     df = pd.read_csv(StringIO(table_text), sep=r"\s+", engine="python")
     return summary_line, df
 
-# Works with: "min_len: XXX; max_len: XXX; avg_len: XXX; ..."
 def parse_header(line):
+    """Extract high-level read-length statistics from the free-text fqchk header."""
     out = {}
     m = re.search(r"min_len:\s*(\d+)", line)
     if m:
@@ -132,22 +129,21 @@ def parse_header(line):
         out["avg_len"] = float(m.group(1))
     return out
 
-# Estimate a conservative minimum VAF threshold from avgQ
 def vaf_redline_from_avgQ(avgQ):
+    """Estimate a conservative variant-frequency floor from average base quality."""
     multiplier = 5
     min_vaf = 0.005
     max_vaf = 0.100
 
     base_error = 10 ** (-avgQ / 10.0)
     vaf = multiplier * base_error
-    # clamp to sensible bounds
+    # Clamp to practical reporting bounds so extreme quality values do not produce
+    # implausibly small or large thresholds in the figure title.
     vaf = max(min_vaf, min(vaf, max_vaf))
     return vaf
 
-# Classify samples based on avgQ, errQ and the heterogeneity between them
-# avgQ gives a quick global snapshot of sequencing quality
-# errQ reflects the true expected sequencing error
 def classify_quality(avgQ, errQ):
+    """Classify overall sequencing quality from avgQ and error-derived quality."""
     d = avgQ - errQ
 
     # Failed or unusable data: globally bad + heterogeneous, suggest to be excluded from analysis
@@ -187,7 +183,7 @@ def classify_quality(avgQ, errQ):
     return f"Risky_data: Sample with high heterogeneity; error dominated by low-quality outliers and downstream analyses should be interpreted with caution."
 
 def font_sizes(n_positions):
-    # base, tick, legend, suptitle
+    """Scale font sizes so plots remain readable across different read lengths."""
     if n_positions < 50:
         return 12, 10, 10, 12
     if n_positions < 200:
@@ -197,14 +193,14 @@ def font_sizes(n_positions):
     return 7, 6, 6, 8
 
 def add_bands(ax, y_min, y_max, step=10, alpha=0.06):
-    # alternating 10-bp bands
-    # band0: [y_min..y_min+step-1], band2: [y_min+20..y_min+29], ...
+    """Add alternating background bands to help track positions across panels."""
     start = int(y_min)
     end = int(y_max)
     for y in range(start, end + 1, step * 2):
         ax.axhspan(y - 0.5, min(y + step - 0.5, end + 0.5), color="#777777", alpha=alpha, zorder=0, linewidth=0)
 
 def style_shared_y_axis(ax, y_min, y_max, show_y_labels=False, tick_fs=8):
+    """Apply the shared vertical layout used by all panels in the composite figure."""
     ax.invert_yaxis()
     ax.set_ylim(y_min - 0.5, y_max + 0.5)
 
@@ -226,8 +222,8 @@ def style_shared_y_axis(ax, y_min, y_max, show_y_labels=False, tick_fs=8):
 
     add_bands(ax, y_min, y_max)
 
-# Round x up to a 'nice' integer step: 1, 2, or 5 times a power of 10
 def nice_round_step(x: float) -> int:
+    """Round a step size to the nearest plotting-friendly 1/2/5 multiple."""
     if x <= 0:
         return 1
     exp = int(np.floor(np.log10(x)))
@@ -243,12 +239,19 @@ def nice_round_step(x: float) -> int:
     return int(nice * (10 ** exp))
 
 def force_y_labels(ax_cov, y_values, step=10, fontsize=8):
+    """Force y-axis labels onto the master coverage panel at regular intervals."""
     y_values = np.asarray(y_values, dtype=int)
     ticks = [int(v) for v in y_values if int(v) % step == 0]
     ax_cov.set_yticks(ticks)
     ax_cov.set_yticklabels([str(v) for v in ticks], fontsize=fontsize)
 
+
+# ========================================================================================
+# Main Entry Point
+# ========================================================================================
+
 def main():
+    """Render the multi-panel QC figure from a seqtk `fqchk` report."""
     parser = get_parser()
     args = parser.parse_args()
 
@@ -334,7 +337,8 @@ def main():
     # Dropoff bases
     dropoff = pd.to_numeric(pos_df["%low"], errors="coerce").fillna(0).values
 
-    # Figure: Coverage + 5 freq panels + Quality + %low (from seqtk fqchk -q20,ASCII=53)= 7 columns
+    # Keep all metrics on a shared y-axis so cycle-specific artefacts line up visually
+    # across coverage, base composition, quality, and low-quality-tail panels.
     fig = plt.figure(figsize=(15, 8))
     gs = fig.add_gridspec(1, 8, width_ratios=[1.4, 1, 1, 1, 1, 1, 1.4, 1], wspace=0.08)
 

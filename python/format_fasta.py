@@ -19,6 +19,10 @@ DEPENDENCIES:
 
 from __future__ import annotations
 
+# ========================================================================================
+# Imports
+# ========================================================================================
+
 import argparse
 import logging
 import sys
@@ -32,10 +36,19 @@ if str(PROJECT_ROOT) not in sys.path:
 from assets.utils_banner import parse_yes_no, print_header, print_summary, setup_logging
 
 
+# ========================================================================================
+# Configuration
+# ========================================================================================
+
 logger = setup_logging()
 
 
+# ========================================================================================
+# Helper Functions
+# ========================================================================================
+
 def build_parser() -> argparse.ArgumentParser:
+    """Build the CLI parser for FASTA normalization."""
     parser = argparse.ArgumentParser(
         description="Convert multi-line FASTA to a normalized two-line FASTA.",
     )
@@ -49,6 +62,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def split_header(header: str, user_delimiter: str | None = None) -> str:
+    """Trim FASTA headers to the first useful token for downstream tools."""
     clean_header = header[1:]
     if user_delimiter:
         return clean_header.split(user_delimiter)[0]
@@ -65,6 +79,7 @@ def process_sequence(
     remove_gap: bool = False,
     double_sequence: bool = False,
 ) -> str:
+    """Apply the optional sequence normalization steps requested by the CLI."""
     if remove_gap:
         sequence = sequence.replace("-", "").replace(".", "")
     if uppercase:
@@ -83,6 +98,7 @@ def convert_fasta(
     remove_gap: bool = False,
     double_sequence: bool = False,
 ) -> Path:
+    """Convert a FASTA file into a normalized two-line FASTA output."""
     if output_path is None:
         if input_path.suffix == ".fasta":
             output_path = input_path.with_name(input_path.stem + ".format.fasta")
@@ -97,6 +113,8 @@ def convert_fasta(
             line = raw_line.strip()
             if line.startswith(">"):
                 if header is not None:
+                    # Emit each completed record as soon as the next header is seen so
+                    # large FASTA files can be streamed without loading them fully.
                     sequence = process_sequence(
                         "".join(sequence_lines),
                         uppercase=uppercase,
@@ -122,7 +140,12 @@ def convert_fasta(
     return output_path
 
 
+# ========================================================================================
+# Main Entry Point
+# ========================================================================================
+
 def main() -> None:
+    """Parse CLI arguments and normalize the requested FASTA file."""
     args = build_parser().parse_args()
     input_path = Path(args.input)
     if not input_path.is_file():

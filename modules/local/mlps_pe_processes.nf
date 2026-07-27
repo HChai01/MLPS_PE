@@ -152,20 +152,25 @@ process QUALITY_TRIM {
     tuple val(meta), path("${meta.id}.R1.f1.fastq.gz"), path("${meta.id}.R2.f1.fastq.gz"), emit: pair
 
     script:
+    def umi_args = ''
+    if (params.umi_location == 'read1') {
+        umi_args = "--umi --umi_loc=read1 --umi_len=${params.umi_length}"
+    } else if (params.umi_location == 'read2') {
+        umi_args = "--umi --umi_loc=read2 --umi_len=${params.umi_length}"
+    } else if (params.umi_location == 'per_read') {
+        umi_args = "--umi --umi_loc=per_read --umi_len=${params.umi_length}"
+    }
     """
     fastp \
         -i "${read1}" \
         -I "${read2}" \
         -o "${meta.id}.R1.f1.fastq.gz" \
         -O "${meta.id}.R2.f1.fastq.gz" \
-        --detect_adapter_for_pe \
         --disable_adapter_trimming \
-        --cut_front false \
-        --cut_tail false \
-        --cut_right false \
-        --qualified_quality_phred 20 \
-        --unqualified_percent_limit 40 \
-        --length_required 30 \
+        --qualified_quality_phred ${params.bq_thr} \
+        --unqualified_percent_limit ${params.bqp_thr} \
+        ${umi_args} \
+        --length_required ${params.min_insert} \
         --thread ${task.cpus}
     """
 
@@ -245,7 +250,7 @@ process SUBSAMPLE_READS {
     """
 }
 
-// Remove known adapter sequences from the subsampled paired reads.
+// Remove anchored 5'primer and 3' adapter sequences from the subsampled paired reads.
 // Output: `${sample}.R1.f3.fastq.gz` and `${sample}.R2.f3.fastq.gz` under `Adapter_trimming/`.
 process ADAPTER_TRIM {
     tag { meta.id }
@@ -255,7 +260,7 @@ process ADAPTER_TRIM {
 
 
     input:
-    tuple val(meta), path(read1), path(read2)
+    tuple val(meta), path(read1), path(read2), val(fwd_primer), val(rev_primer)
 
     output:
     tuple val(meta), path("${meta.id}.R1.f3.fastq.gz"), path("${meta.id}.R2.f3.fastq.gz"), emit: pair
@@ -263,13 +268,17 @@ process ADAPTER_TRIM {
     script:
     """
     cutadapt \
-        -g "^file:${projectDir}/reference/known_adapters.fasta" \
-        -G "^file:${projectDir}/reference/known_adapters.fasta" \
+        -g "^file:${fwd_primer}" \
+        -G "^file:${rev_primer}" \
+        -a "file:${projectDir}/reference/known_3_adapters.fasta" \
+        -A "file:${projectDir}/reference/known_3_adapters.fasta" \
         -o "${meta.id}.R1.f3.fastq.gz" \
         -p "${meta.id}.R2.f3.fastq.gz" \
         "${read1}" "${read2}" \
+        --overlap 5 \
         -e 0.1 \
         -m 15 \
+        --cores=${task.cpus} \
         --quiet
     """
 
@@ -541,11 +550,13 @@ process BUILD_TARGET_READ_POOL {
 
     script:
     """
-    samtools fastq -f1 -F256 -n "${bam}" \
+    samtools sort -n -O BAM "${bam}" \
+        | samtools fastq -f1 -F256 \
         -1 "${meta.id}.R1.target.fastq.gz" \
         -2 "${meta.id}.R2.target.fastq.gz" \
         -0 /dev/null \
-        -s /dev/null
+        -s /dev/null \
+        -n -
     """
 
     stub:

@@ -63,11 +63,16 @@ The pipeline validates parameters and key repository assets before expensive wor
 - `--outdir`: output directory
 - `--human_db`: Bowtie2 human index prefix
 - `--target_reference`: target reference FASTA
+- `--fwd_primer_seq`: forward primer sequence to trim in R1 file
+- `--rev_primer_seq`: reverse primer sequence to trim in R2 file
 - `--dedup`: `yes` or `no`
 - `--target_genome_type`: `linear` or `circular`
 - `--bq_thr`: base-quality threshold for bcftools mpileup, default `13`
 - `--depth_thr`: depth threshold used for masking and filtering, default `5`
 - `--qual_thr`: QUAL threshold for filtered variants, default `30`
+- `--umi_location`:location of the unique molecular identifier, `read1`, `read2` or `per_read`, default `none`
+- `--umi_length`: length of the UMI, default `8`
+- `--min_insert`: minimum post-QC length of the insert, default `30`
 - `--cleantmpdata`: `yes` or `no`, default `yes`
 - `--cleantmpdatasize`: size threshold for truncating oversized regular files in traced `work/` task directories during shutdown cleanup, default `1MB`
 - `--threads`: positive integer

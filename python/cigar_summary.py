@@ -20,6 +20,10 @@ DEPENDENCIES:
 
 from __future__ import annotations
 
+# ========================================================================================
+# Imports
+# ========================================================================================
+
 import argparse
 import logging
 import re
@@ -34,11 +38,20 @@ if str(PROJECT_ROOT) not in sys.path:
 from assets.utils_banner import print_header, print_summary, setup_logging
 
 
+# ========================================================================================
+# Configuration
+# ========================================================================================
+
 logger = setup_logging()
 CIGAR_RE = re.compile(r"(\d+)([MIDNSHP=X])")
 
 
+# ========================================================================================
+# Helper Functions
+# ========================================================================================
+
 def build_parser() -> argparse.ArgumentParser:
+    """Build the CLI parser for CIGAR summary export."""
     parser = argparse.ArgumentParser(
         description="Summarize CIGAR operations and append intelligently to a TSV output file.",
     )
@@ -136,7 +149,12 @@ def write_summary(
     logger.info("CIGAR summary written to %s", output_path)
 
 
+# ========================================================================================
+# Main Entry Point
+# ========================================================================================
+
 def main() -> None:
+    """Parse CLI arguments and export the CIGAR operation summary."""
     args = build_parser().parse_args()
     input_path = Path(args.input)
     output_path = Path(args.outputtsv)

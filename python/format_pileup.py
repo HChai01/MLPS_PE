@@ -21,6 +21,10 @@ DEPENDENCIES:
 
 from __future__ import annotations
 
+# ========================================================================================
+# Imports
+# ========================================================================================
+
 import argparse
 import logging
 import re
@@ -35,6 +39,10 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from assets.utils_banner import print_header, print_summary, setup_logging
 
+
+# ========================================================================================
+# Configuration
+# ========================================================================================
 
 logger = setup_logging()
 
@@ -53,7 +61,12 @@ IUPAC = {
 }
 
 
+# ========================================================================================
+# Helper Functions
+# ========================================================================================
+
 def build_parser() -> argparse.ArgumentParser:
+    """Build the CLI parser for pileup formatting."""
     parser = argparse.ArgumentParser(
         description="Generate pileup-derived consensus and summary outputs.",
     )
@@ -62,6 +75,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def clean_reads(reads: str) -> str:
+    """Remove pileup control markers so only observed base calls remain."""
     reads = re.sub(r"\^.", "", reads)
     reads = re.sub(r"\$", "", reads)
     reads = re.sub(r"[+-]\d+[ACGTNacgtn]+", "", reads)
@@ -69,10 +83,12 @@ def clean_reads(reads: str) -> str:
 
 
 def base_counts(counts: Counter[str]) -> dict[str, int]:
+    """Return counts for the canonical DNA bases in fixed column order."""
     return {base: counts.get(base, 0) for base in "ACGT"}
 
 
 def consensus_from_top_counts(counts: Counter[str]) -> str:
+    """Return the top base or IUPAC ambiguity code for a pileup position."""
     filtered = base_counts(counts)
     max_count = max(filtered.values())
     if max_count == 0:
@@ -84,6 +100,7 @@ def consensus_from_top_counts(counts: Counter[str]) -> str:
 
 
 def get_case_consensus(counts: Counter[str]) -> str:
+    """Encode confidence by letter case and low-depth masking symbols."""
     filtered = base_counts(counts)
     max_count = max(filtered.values())
     if max_count == 0:
@@ -97,6 +114,7 @@ def get_case_consensus(counts: Counter[str]) -> str:
 
 
 def get_patch_consensus(counts: Counter[str], reference_base: str) -> str:
+    """Fall back to the reference base when a pileup position has no calls."""
     filtered = base_counts(counts)
     if max(filtered.values()) == 0:
         return reference_base
@@ -104,6 +122,7 @@ def get_patch_consensus(counts: Counter[str], reference_base: str) -> str:
 
 
 def get_variant_signal(counts: Counter[str]) -> str:
+    """Summarize the set of observed alleles as a single IUPAC symbol."""
     observed = {base for base in "ACGT" if counts.get(base, 0) > 0}
     if not observed:
         return "?"
@@ -113,6 +132,7 @@ def get_variant_signal(counts: Counter[str]) -> str:
 
 
 def parse_pileup(input_path: Path) -> tuple[list[dict[str, str | int]], dict[str, str]]:
+    """Build per-position summary rows and the FASTA strings derived from them."""
     rows: list[dict[str, str | int]] = []
     sequences = {
         "case": "",
@@ -132,6 +152,8 @@ def parse_pileup(input_path: Path) -> tuple[list[dict[str, str | int]], dict[str
             normalized_reads = cleaned_reads.upper().replace(".", reference_base.upper()).replace(",", reference_base.upper())
             counts = Counter(normalized_reads)
 
+            # The workflow emits several FASTA variants from the same pileup pass, so
+            # consensus strings are assembled here while position-level counts are fresh.
             case_consensus = get_case_consensus(counts)
             called_consensus = consensus_from_top_counts(counts)
             patched_consensus = get_patch_consensus(counts, reference_base.upper())
@@ -163,6 +185,7 @@ def parse_pileup(input_path: Path) -> tuple[list[dict[str, str | int]], dict[str
 
 
 def write_outputs(input_path: Path, rows: list[dict[str, str | int]], sequences: dict[str, str]) -> None:
+    """Write the CSV and FASTA products derived from one pileup input."""
     sample_name = input_path.stem
     ntfreq_path = input_path.with_suffix(".ntfreq.csv")
     consensus_path = input_path.with_suffix(".consensus.fasta")
@@ -195,7 +218,12 @@ def write_outputs(input_path: Path, rows: list[dict[str, str | int]], sequences:
     logger.info("Variant signals written to %s", variant_path)
 
 
+# ========================================================================================
+# Main Entry Point
+# ========================================================================================
+
 def main() -> None:
+    """Parse CLI arguments and export all pileup-derived outputs."""
     args = build_parser().parse_args()
     input_path = Path(args.input)
     rows, sequences = parse_pileup(input_path)

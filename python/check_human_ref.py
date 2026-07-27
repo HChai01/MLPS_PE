@@ -22,6 +22,10 @@ DEPENDENCIES:
 
 from __future__ import annotations
 
+# ========================================================================================
+# Imports
+# ========================================================================================
+
 import argparse
 import logging
 import os
@@ -38,6 +42,10 @@ if str(PROJECT_ROOT) not in sys.path:
 from assets.utils_banner import parse_yes_no, print_header, print_summary, setup_logging
 
 
+# ========================================================================================
+# Configuration
+# ========================================================================================
+
 logger = setup_logging()
 
 EXPECTED_SUFFIXES = [
@@ -50,7 +58,12 @@ EXPECTED_SUFFIXES = [
 ]
 
 
+# ========================================================================================
+# Helper Functions
+# ========================================================================================
+
 def build_parser() -> argparse.ArgumentParser:
+    """Build the CLI parser for human-reference validation."""
     parser = argparse.ArgumentParser(
         description="Check and optionally rebuild a Bowtie2 human reference index.",
     )
@@ -71,11 +84,13 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def run_command(command: list[str], *, cwd: Path | None = None) -> None:
+    """Execute an external command while logging the exact invocation."""
     logger.info("Running command: %s", " ".join(command))
     subprocess.run(command, cwd=cwd, check=True)
 
 
 def check_index_files(prefix: Path) -> bool:
+    """Verify that all Bowtie2 index shards exist and are non-empty."""
     ok = True
     for suffix in EXPECTED_SUFFIXES:
         index_path = Path(f"{prefix}{suffix}")
@@ -90,6 +105,7 @@ def check_index_files(prefix: Path) -> bool:
 
 
 def check_bowtie2(prefix: Path) -> bool:
+    """Run a one-read alignment smoke test against the supplied Bowtie2 prefix."""
     try:
         with tempfile.NamedTemporaryFile(mode="w", delete=False) as fastq_handle:
             fastq_handle.write("@r1\nACGT\n+\nFFFF\n")
@@ -113,6 +129,7 @@ def check_bowtie2(prefix: Path) -> bool:
 
 
 def rebuild_reference(ref_dir: Path, reflink: str, prefix: str) -> None:
+    """Download, normalize, and index a replacement Bowtie2 reference."""
     logger.info("Rebuilding reference under %s", ref_dir)
     ref_dir.mkdir(parents=True, exist_ok=True)
 
@@ -149,7 +166,12 @@ def rebuild_reference(ref_dir: Path, reflink: str, prefix: str) -> None:
     logger.info("Reference rebuild completed")
 
 
+# ========================================================================================
+# Main Entry Point
+# ========================================================================================
+
 def main() -> None:
+    """Validate the human reference prefix and optionally rebuild it on failure."""
     args = build_parser().parse_args()
     prefix = Path(args.humanref)
     rebuild = parse_yes_no(args.rebuild, param_name="--rebuild")

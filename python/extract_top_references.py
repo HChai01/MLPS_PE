@@ -19,6 +19,10 @@ DEPENDENCIES:
 
 from __future__ import annotations
 
+# ========================================================================================
+# Imports
+# ========================================================================================
+
 import argparse
 import logging
 import sys
@@ -32,10 +36,19 @@ if str(PROJECT_ROOT) not in sys.path:
 from assets.utils_banner import print_header, print_summary, setup_logging
 
 
+# ========================================================================================
+# Configuration
+# ========================================================================================
+
 logger = setup_logging()
 
 
+# ========================================================================================
+# Helper Functions
+# ========================================================================================
+
 def build_parser() -> argparse.ArgumentParser:
+    """Build the CLI parser for FASTA record extraction."""
     parser = argparse.ArgumentParser(
         description="Extract the top-N FASTA records listed in a TSV summary.",
     )
@@ -47,6 +60,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def get_target_ids(tsv_path: Path, top_n: int) -> list[str]:
+    """Read the first-column identifiers from the top-N rows of the summary TSV."""
     target_ids: list[str] = []
     with tsv_path.open(encoding="utf-8") as handle:
         header = next(handle, None)
@@ -65,6 +79,7 @@ def get_target_ids(tsv_path: Path, top_n: int) -> list[str]:
 
 
 def extract_fastas(fasta_path: Path, target_ids: list[str], output_path: Path) -> None:
+    """Stream through the FASTA once and copy only the requested records."""
     targets = set(target_ids)
     found_ids: set[str] = set()
     write_sequence = False
@@ -86,7 +101,12 @@ def extract_fastas(fasta_path: Path, target_ids: list[str], output_path: Path) -
     logger.info("Selected FASTA records written to %s", output_path)
 
 
+# ========================================================================================
+# Main Entry Point
+# ========================================================================================
+
 def main() -> None:
+    """Parse CLI arguments and export the requested top-reference FASTA records."""
     args = build_parser().parse_args()
     if args.topn < 1:
         raise SystemExit("--topn must be >= 1")

@@ -19,6 +19,10 @@ DEPENDENCIES:
 
 from __future__ import annotations
 
+# ========================================================================================
+# Imports
+# ========================================================================================
+
 import argparse
 import logging
 import sys
@@ -32,10 +36,19 @@ if str(PROJECT_ROOT) not in sys.path:
 from assets.utils_banner import print_header, print_summary, setup_logging
 
 
+# ========================================================================================
+# Configuration
+# ========================================================================================
+
 logger = setup_logging()
 
 
+# ========================================================================================
+# Helper Functions
+# ========================================================================================
+
 def build_parser() -> argparse.ArgumentParser:
+    """Build the CLI parser for doubled-reference pileup collapse."""
     parser = argparse.ArgumentParser(
         description="Collapse pileup positions from a doubled reference back to original coordinates.",
     )
@@ -46,6 +59,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def get_reference_length(fasta_path: Path) -> int:
+    """Return the total reference length represented by the original FASTA."""
     length = 0
     with fasta_path.open(encoding="utf-8") as handle:
         for line in handle:
@@ -55,6 +69,7 @@ def get_reference_length(fasta_path: Path) -> int:
 
 
 def parse_pileup_line(line: str) -> tuple[str, int, str, int, str, str] | None:
+    """Parse the subset of pileup columns needed by the collapse routine."""
     fields = line.rstrip().split("\t")
     if len(fields) < 6:
         return None
@@ -63,6 +78,7 @@ def parse_pileup_line(line: str) -> tuple[str, int, str, int, str, str] | None:
 
 
 def merge_reads_with_star_logic(reads: str, qualities: str) -> tuple[str, str]:
+    """Prefer real bases over deletion placeholders when merged halves overlap."""
     pairs = list(zip(reads, qualities))
     real_pairs = [(read, quality) for read, quality in pairs if read != "*"]
     star_pairs = [(read, quality) for read, quality in pairs if read == "*"]
@@ -77,6 +93,7 @@ def merge_reads_with_star_logic(reads: str, qualities: str) -> tuple[str, str]:
 
 
 def collapse_pileup(input_path: Path, original_ref: Path, output_path: Path) -> None:
+    """Merge two reference copies back onto the original coordinate system."""
     reference_length = get_reference_length(original_ref)
     pileup_by_position: dict[tuple[str, int], dict[str, list[str] | str]] = {}
 
@@ -93,6 +110,8 @@ def collapse_pileup(input_path: Path, original_ref: Path, output_path: Path) -> 
             if key not in pileup_by_position:
                 pileup_by_position[key] = {"ref_base": ref_base, "reads": [], "quals": []}
 
+            # Keep both halves until the final write step so deletion placeholders can
+            # be filtered with access to the merged read/quality stream.
             pileup_by_position[key]["reads"].append(reads)
             pileup_by_position[key]["quals"].append(qualities)
 
@@ -110,7 +129,12 @@ def collapse_pileup(input_path: Path, original_ref: Path, output_path: Path) -> 
     logger.info("Collapsed pileup written to %s", output_path)
 
 
+# ========================================================================================
+# Main Entry Point
+# ========================================================================================
+
 def main() -> None:
+    """Parse CLI arguments and collapse the doubled pileup file."""
     args = build_parser().parse_args()
     collapse_pileup(Path(args.input), Path(args.originalref), Path(args.output))
 

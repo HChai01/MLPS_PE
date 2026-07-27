@@ -23,6 +23,10 @@ DEPENDENCIES:
 
 from __future__ import annotations
 
+# ========================================================================================
+# Imports
+# ========================================================================================
+
 import argparse
 import csv
 import logging
@@ -39,12 +43,21 @@ if str(PROJECT_ROOT) not in sys.path:
 from assets.utils_banner import print_header, print_summary, setup_logging
 
 
+# ========================================================================================
+# Configuration
+# ========================================================================================
+
 logger = setup_logging()
 
 REQUIRED_SAMPLE_HEADERS = ["job_id", "sample_name", "r1_path", "r2_path"]
 
 
+# ========================================================================================
+# Helper Functions
+# ========================================================================================
+
 def build_parser() -> argparse.ArgumentParser:
+    """Build the CLI parser for SBATCH wrapper generation."""
     parser = argparse.ArgumentParser(
         description="Generate SBATCH scripts and per-sample input CSV files.",
     )
@@ -76,10 +89,24 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def shell_quote(value: str | Path) -> str:
+    """Quote filesystem values before embedding them in generated shell scripts."""
     return shlex.quote(str(value))
 
 
 def load_samples(input_csv: Path) -> tuple[list[str], list[dict[str, str]]]:
+    """
+    Load and validate the sample sheet used to generate per-sample SBATCH jobs.
+
+    Parameters
+    ----------
+    input_csv : Path
+        Input CSV containing paired-end sample metadata.
+
+    Returns
+    -------
+    tuple[list[str], list[dict[str, str]]]
+        CSV header order and validated sample rows.
+    """
     with input_csv.open("r", newline="", encoding="utf-8") as handle:
         reader = csv.DictReader(handle)
         if reader.fieldnames is None:
@@ -105,6 +132,7 @@ def load_samples(input_csv: Path) -> tuple[list[str], list[dict[str, str]]]:
 
 
 def write_one_row_csv(output_csv: Path, fieldnames: list[str], row: dict[str, str]) -> None:
+    """Write a one-sample CSV that can be passed directly to the workflow."""
     with output_csv.open("w", newline="", encoding="utf-8") as handle:
         writer = csv.DictWriter(handle, fieldnames=fieldnames)
         writer.writeheader()
@@ -123,17 +151,19 @@ def make_sbatch_script(
     target_genome_type: str,
     dedup: str,
 ) -> str:
+    """Render the SBATCH wrapper that launches Nextflow for one sample."""
     backslash = "\\"
     lines = [
         "#!/usr/bin/env bash",
         "",
         f"#SBATCH -A {sbatch_account}",
-        f"#SBATCH -J {job_id}",
+        f"#SBATCH -J {job_id[-6:]}",
         f"#SBATCH -o {shell_quote(rundir / 'sbatch' / f'{job_id}.sbatch.out')}",
         f"#SBATCH -e {shell_quote(rundir / 'sbatch' / f'{job_id}.sbatch.err')}",
         f"#SBATCH -p {sbatch_partition}",
         "",
-        f"{shell_quote(pipeline_path / 'nextflow')} run {shell_quote(pipeline_path / 'main.nf')} {backslash}",
+        f"{shell_quote(pipeline_path / 'nextflow')} -log {shell_quote(rundir / job_id / f'{job_id}.log')} {backslash}",
+        f"  run {shell_quote(pipeline_path / 'main.nf')} {backslash}",
         f"  --inputcsv {shell_quote(rundir / job_id / f'{job_id}.input.csv')} {backslash}",
         f"  --outdir {shell_quote(rundir / job_id)} {backslash}",
         f"  --human_db {shell_quote(human_db)} {backslash}",
@@ -142,12 +172,17 @@ def make_sbatch_script(
         f"  --dedup {shell_quote(dedup)} {backslash}",
         f"  --bq_thr 13 {backslash}",
         f"  --depth_thr 5 {backslash}",
-        "  --qual_thr 30",
+        "  --qual_thr 30"
     ]
     return "\n".join(lines) + "\n"
 
 
+# ========================================================================================
+# Main Entry Point
+# ========================================================================================
+
 def main() -> None:
+    """Generate per-sample workflow inputs and the matching SBATCH helpers."""
     args = build_parser().parse_args()
 
     input_csv = args.inputcsv.expanduser().resolve()
@@ -187,7 +222,7 @@ def main() -> None:
         os.chmod(sbatch_path, 0o755)
         logger.info("Wrote SBATCH wrapper: %s", sbatch_path)
 
-        submit_lines.append(f"sbatch {shell_quote(sbatch_path)}")
+        submit_lines.append(f"sbatch --cpus-per-task=1 --mem=16G {shell_quote(sbatch_path)}")
 
     submit_path = rundir / "submit_sbatch.sh"
     submit_path.write_text("\n".join(submit_lines) + "\n", encoding="utf-8")

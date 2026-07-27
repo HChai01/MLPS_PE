@@ -9,6 +9,10 @@ Version:      ver.2026-04-12
 
 from __future__ import annotations
 
+# ========================================================================================
+# Imports
+# ========================================================================================
+
 import argparse
 import csv
 import sys
@@ -22,10 +26,19 @@ if str(PROJECT_ROOT) not in sys.path:
 from assets.utils_banner import print_header, print_summary, setup_logging
 
 
+# ========================================================================================
+# Configuration
+# ========================================================================================
+
 logger = setup_logging()
 
 
+# ========================================================================================
+# Helper Functions
+# ========================================================================================
+
 def build_parser() -> argparse.ArgumentParser:
+    """Build the CLI parser for traced work-directory cleanup."""
     parser = argparse.ArgumentParser(
         description="Truncate large regular files in traced Nextflow task work directories.",
     )
@@ -36,6 +49,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def read_traced_task_dirs(trace_path: Path, workdir: Path) -> list[Path]:
+    """Resolve traced task hashes back to concrete directories under the work tree."""
     if not trace_path.exists():
         logger.warning("Trace file not found: %s", trace_path)
         return []
@@ -70,6 +84,7 @@ def read_traced_task_dirs(trace_path: Path, workdir: Path) -> list[Path]:
 
 
 def truncate_large_files(task_dirs: list[Path], workdir: Path, max_bytes: int) -> tuple[int, int]:
+    """Truncate oversized regular files while keeping cleanup scoped to the real workdir."""
     truncated_files = 0
     bytes_reclaimed = 0
     workdir_resolved = workdir.resolve()
@@ -98,7 +113,12 @@ def truncate_large_files(task_dirs: list[Path], workdir: Path, max_bytes: int) -
     return truncated_files, bytes_reclaimed
 
 
+# ========================================================================================
+# Main Entry Point
+# ========================================================================================
+
 def main() -> None:
+    """Clean traced task directories and report how much space was reclaimed."""
     args = build_parser().parse_args()
     workdir = args.workdir.resolve()
 
