@@ -112,9 +112,14 @@ def scale_coverage(median_coverage: float, read_length: int, *, k_from: int, k_t
     return median_coverage * (read_length - k_to + 1) / denominator
 
 
-def write_kmer_summary(kmer_counts: dict[str, int], kmer_size: int, coverage_target: int) -> None:
+def write_kmer_summary(
+    kmer_counts: dict[str, int],
+    kmer_size: int,
+    coverage_target: int,
+    output_dir: Path,
+) -> None:
     """Write the final canonical k-mer count table for audit and tuning purposes."""
-    output_path = Path(f"kmer_summary_k{kmer_size}_C{coverage_target}.tsv.gz")
+    output_path = output_dir / f"kmer_summary_k{kmer_size}_C{coverage_target}.tsv.gz"
     with gzip.open(output_path, "wt", encoding="utf-8") as handle:
         handle.write(f"# k={kmer_size}\tC={coverage_target}\n")
         handle.write("kmer\tcount\n")
@@ -127,9 +132,10 @@ def write_median_summary(
     records: list[tuple[str, float, str, int, int, float, float]],
     kmer_size: int,
     coverage_target: int,
+    output_dir: Path,
 ) -> None:
     """Write one per-pair median-coverage record for downstream QC review."""
-    output_path = Path(f"median_kmer_coverage_k{kmer_size}_C{coverage_target}.tsv.gz")
+    output_path = output_dir / f"median_kmer_coverage_k{kmer_size}_C{coverage_target}.tsv.gz"
     with gzip.open(output_path, "wt", encoding="utf-8") as handle:
         handle.write(
             f"read_id\tmedian_kmer_cov_k{kmer_size}\tstatus\tlen_r1\tlen_r2\t"
@@ -243,8 +249,8 @@ def normalize_paired_fastq(
                 )
 
     logger.info("Normalization finished: kept=%s discarded=%s", kept_pairs, discarded_pairs)
-    write_kmer_summary(kmer_counts, kmer_size, coverage_target)
-    write_median_summary(median_records, kmer_size, coverage_target)
+    write_kmer_summary(kmer_counts, kmer_size, coverage_target, output_r1.parent)
+    write_median_summary(median_records, kmer_size, coverage_target, output_r1.parent)
 
 
 # ========================================================================================
