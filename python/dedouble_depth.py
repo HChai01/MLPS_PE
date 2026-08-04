@@ -52,10 +52,7 @@ logger = setup_logging()
 def build_parser() -> argparse.ArgumentParser:
     """Build the CLI parser for doubled-reference depth collapse."""
     parser = argparse.ArgumentParser(
-        description=(
-            "Dedouble a samtools depth -a file produced from a reference where each contig "
-            "was concatenated with itself."
-        ),
+        description="Dedouble a samtools depth -a file produced from a reference where each contig was concatenated with itself.",
     )
     parser.add_argument("--input", required=True, help="Input depth file from samtools depth -a")
     parser.add_argument("--originalref", required=True, help="Original FASTA reference")

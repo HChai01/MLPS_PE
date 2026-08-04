@@ -52,7 +52,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Convert multi-line FASTA to a normalized two-line FASTA.",
     )
-    parser.add_argument("input", help="Input FASTA file")
+    parser.add_argument("--input", help="Input FASTA file")
     parser.add_argument("--output", help="Output FASTA file")
     parser.add_argument("--split", help="Delimiter used to trim FASTA headers")
     parser.add_argument("--uppercase", default="no", help="Convert sequence to uppercase: yes/no")

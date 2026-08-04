@@ -55,8 +55,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Expand nt-frequency CSV rows into long-form nucleotide count records.",
     )
-    parser.add_argument("input", help="Input nt-frequency CSV from formatpileup.py")
-    parser.add_argument("output", help="Output CSV path")
+    parser.add_argument("--input", help="Input nt-frequency CSV from formatpileup.py")
+    parser.add_argument("--output", help="Output CSV path")
     return parser
 
 

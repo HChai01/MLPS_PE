@@ -65,16 +65,10 @@ def get_parser():
     """Build the CLI parser for seqtk `fqchk` QC plotting."""
     parser = argparse.ArgumentParser(
         description="Draw QC plots from seqtk fqchk TSV output.",
-        epilog="""
-Usage example: 
-    python3 drawqcplot.py -i fqchk.tsv
-    python3 drawqcplot.py --input fqchk.tsv --qthres 20 --output out.pdf
-        """,formatter_class=argparse.RawTextHelpFormatter
     )
-
-    parser.add_argument("-i", "--input", required=True, help="TSV input from seqtk fqchk TSV output.")
-    parser.add_argument("-q", "--qthres", default="20", help="Phred Q threshold used in seqtk fqchk.")
-    parser.add_argument("-o", "--output", default="out.pdf", help="QC plots.")
+    parser.add_argument("--input", required=True, help="TSV input from seqtk fqchk TSV output.")
+    parser.add_argument("--qthres", default="20", help="Phred Q threshold used in seqtk fqchk.")
+    parser.add_argument("--output", default="out.pdf", help="QC plots.")
 
     return parser
 

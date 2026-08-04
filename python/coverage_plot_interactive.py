@@ -61,7 +61,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--indir", required=True, help="Directory containing depth `.txt` files")
     parser.add_argument("--output", required=True, help="Output HTML file path")
-    parser.add_argument("--yaxis", required=True, choices=["raw", "log10"], help="Y-axis scaling mode")
+    parser.add_argument("--yaxis", required=True, choices=["raw", "log10"], help="Y-axis scaling mode: raw/log10")
     return parser
 
 

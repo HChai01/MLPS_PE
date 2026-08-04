@@ -58,7 +58,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--input", required=True, help="Input CIGAR file")
     parser.add_argument("--outputtsv", required=True, help="Output TSV file")
     parser.add_argument("--prefix", required=True, help="Prefix used for the summary column names")
-    parser.add_argument("--samplename", default=None, help="Optional sample name (default: inferred from input filename)")
+    parser.add_argument("--samplename", default=None, help="Optional sample name")
     return parser
 
 

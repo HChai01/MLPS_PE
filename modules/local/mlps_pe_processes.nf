@@ -724,7 +724,7 @@ process FORMAT_PILEUP {
         : """printf "%s\\t0\\t0\\t0\\t0\\n" "${meta.id}" > "${meta.id}.fasta_summary_row.tsv" """
     """
     cp "${pileup}" "${meta.id}.pileup"
-    python "${projectDir}/python/format_pileup.py" "${meta.id}.pileup"
+    python "${projectDir}/python/format_pileup.py" --input "${meta.id}.pileup"
     ${summaryCmd}
     """
 
@@ -772,10 +772,12 @@ process NORMALISE_FOR_ASSEMBLY {
     script:
     """
     python "${projectDir}/python/normalise_PE_fastq.py" \
-        -1 "${read1}" \
-        -2 "${read2}" \
-        -o "${meta.id}.R1.normalised.fastq.gz" \
-        -O "${meta.id}.R2.normalised.fastq.gz"
+        --fastq_r1 "${read1}" \
+        --fastq_r2 "${read2}" \
+        --out_r1 "${meta.id}.R1.normalised.fastq.gz" \
+        --out_r2 "${meta.id}.R2.normalised.fastq.gz" \
+        --kmer 21 \
+        --coverage 20
     """
 
     stub:
@@ -932,7 +934,7 @@ process BUILD_NT_COUNTS {
 
     script:
     """
-    python "${projectDir}/python/built_nt_freq.py" "${ntfreq_csv}" "${meta.id}.L2nt.csv"
+    python "${projectDir}/python/built_nt_freq.py" --input "${ntfreq_csv}" --output "${meta.id}.L2nt.csv"
     """
 
     stub:

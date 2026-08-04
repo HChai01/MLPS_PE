@@ -5,6 +5,17 @@ Description:  Export Nextflow task command scripts into a readable Markdown repo
 Author:       Dr. Haiting Chai
 Last update:  2026-APR-12
 Version:      ver.2026-04-12
+
+DEPENDENCIES:
+    - Python 3.10
+    - __future__ (standard library)
+    - argparse (standard library)
+    - logging (standard library)
+    - csv (standard library)
+    - sys (standard library)
+    - time (standard library)
+    - pathlib (standard library)
+    - assets.utils_banner (project module)
 """
 
 from __future__ import annotations
@@ -14,6 +25,7 @@ from __future__ import annotations
 # ========================================================================================
 
 import argparse
+import logging
 import csv
 import sys
 import time

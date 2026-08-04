@@ -66,12 +66,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Paired-end digital normalization for FASTQ / FASTQ.gz input.",
     )
-    parser.add_argument("-1", "--fastq_r1", type=Path, required=True, help="Input FASTQ for read 1")
-    parser.add_argument("-2", "--fastq_r2", type=Path, required=True, help="Input FASTQ for read 2")
-    parser.add_argument("-o", "--out_r1", type=Path, required=True, help="Output normalized FASTQ for read 1")
-    parser.add_argument("-O", "--out_r2", type=Path, required=True, help="Output normalized FASTQ for read 2")
-    parser.add_argument("-k", "--kmer", type=int, default=21, help="k-mer size")
-    parser.add_argument("-C", "--coverage", type=int, default=20, help="Target median k-mer coverage")
+    parser.add_argument("--fastq_r1", type=Path, required=True, help="Input FASTQ for read 1")
+    parser.add_argument("--fastq_r2", type=Path, required=True, help="Input FASTQ for read 2")
+    parser.add_argument("--out_r1", type=Path, required=True, help="Output normalized FASTQ for read 1")
+    parser.add_argument("--out_r2", type=Path, required=True, help="Output normalized FASTQ for read 2")
+    parser.add_argument("--kmer", type=int, default=21, help="k-mer size")
+    parser.add_argument("--coverage", type=int, default=20, help="Target median k-mer coverage")
     return parser
 
 

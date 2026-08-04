@@ -70,7 +70,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Generate pileup-derived consensus and summary outputs.",
     )
-    parser.add_argument("input", help="Input pileup file")
+    parser.add_argument("--input", help="Input pileup file")
     return parser
 
 

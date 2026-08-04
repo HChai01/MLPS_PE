@@ -59,20 +59,19 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Reallocate multi-mapped reads across references with EM.",
     )
-    parser.add_argument("-b", "--bam", required=True, help="Input BAM containing primary and secondary alignments")
+    parser.add_argument("--bam", required=True, help="Input BAM containing primary and secondary alignments")
     parser.add_argument("--power_x", type=float, default=1.0, help="Exponent applied to current abundance estimates")
     parser.add_argument("--beta", type=float, default=0.1, help="Scaling factor for score-derived probabilities")
     parser.add_argument("--gamma", type=float, default=0.02, help="Clipping penalty for the HYBRID model")
     parser.add_argument(
-        "-m",
         "--model",
         default="AS+NM",
         choices=["AS", "NM", "AS+NM", "MAPQ", "HYBRID"],
-        help="Likelihood model to use",
+        help="Likelihood model to use: AS/NM/AS+NM/MAPQ/HYBRID",
     )
     parser.add_argument("--max_iter", type=int, default=50, help="Maximum number of EM iterations")
     parser.add_argument("--converge", type=float, default=1e-4, help="Convergence threshold")
-    parser.add_argument("-o", "--out", default="em_assignments.tsv", help="Per-read posterior output TSV")
+    parser.add_argument("--out", default="em_assignments.tsv", help="Per-read posterior output TSV")
     return parser
 
 

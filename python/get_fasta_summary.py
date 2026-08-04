@@ -71,7 +71,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--seqtype",
         required=True,
         choices=["DNA", "RNA", "NT", "AA", "dna", "rna", "nt", "aa"],
-        help="Sequence type",
+        help="Sequence type: DNA/RNA/NT/AA",
     )
     return parser
 
