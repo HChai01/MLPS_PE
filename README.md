@@ -14,60 +14,6 @@ Install Nextflow before running the pipeline:
 curl -s https://get.nextflow.io | bash
 ```
 
-## MLPS_PE Command-Line Toolkit
-
-The repository includes a terminal dispatcher for the Python toolkit. It uses `python/toolkit/toolkit.list.csv` as the module registry and provides one command for running the registered utilities.
-
-Show the toolkit overview and all available modules:
-
-```bash
-./mlps_pe --help
-```
-
-Show detailed help for one module. The module options are forwarded to the underlying Python script:
-
-```bash
-./mlps_pe format_fasta --help
-```
-
-Run a module:
-
-```bash
-./mlps_pe format_fasta \
-  --input input.fa \
-  --output output.fa
-```
-
-The dispatcher and toolkit registry are located in `python/toolkit/`:
-
-- `python/toolkit/mlps_pe.py`: module dispatcher
-- `python/toolkit/toolkit.list.csv`: registered modules and parameter summaries
-- `python/toolkit/requirements-toolkit.txt`: Python package requirements
-
-### Building the Toolkit Runtime
-
-On macOS or Linux, run the build script from the project root:
-
-```bash
-./make
-```
-
-This creates `.mlps_pe_runtime/` and installs the toolkit’s Python package dependencies. The existing `./mlps_pe` launcher automatically uses that runtime.
-
-On Windows PowerShell, run:
-
-```powershell
-.\make.ps1
-```
-
-The Windows build creates `.mlps_pe_runtime\` and installs the same package requirements. The dispatcher can then be run with:
-
-```powershell
-.\.mlps_pe_runtime\Scripts\python.exe .\python\toolkit\mlps_pe.py --help
-```
-
-The `.mlps_pe_runtime/` directory is a local generated runtime and is excluded from version control.
-
 ## Workflow Scope
 
 This first-pass production pipeline follows the process order documented in `Pilot/workflow.md` and preserves the recognizable numbered result layout from the shell workflow:
@@ -246,6 +192,60 @@ Important documented summary outputs include:
 - `pipeline_info/${project_name}.command.md`, generated at workflow shutdown from available Nextflow `.command.sh` task scripts for command tracing
 
 When `--cleantmpdata yes` is active, the shutdown finalizer also reads `pipeline_info/trace.txt` and truncates oversized regular files inside the traced task directories under `work/`. It skips symlinks and does not touch regular files outside the Nextflow `work/` tree.
+
+## MLPS_PE Command-Line Toolkit
+
+The repository includes a terminal dispatcher for the Python toolkit. It uses `python/toolkit/toolkit.list.csv` as the module registry and provides one command for running the registered utilities.
+
+Show the toolkit overview and all available modules:
+
+```bash
+./mlps_pe --help
+```
+
+Show detailed help for one module. The module options are forwarded to the underlying Python script:
+
+```bash
+./mlps_pe format_fasta --help
+```
+
+Run a module:
+
+```bash
+./mlps_pe format_fasta \
+  --input input.fa \
+  --output output.fa
+```
+
+The dispatcher and toolkit registry are located in `python/toolkit/`:
+
+- `python/toolkit/mlps_pe.py`: module dispatcher
+- `python/toolkit/toolkit.list.csv`: registered modules and parameter summaries
+- `python/toolkit/requirements-toolkit.txt`: Python package requirements
+
+### Building the Toolkit Runtime
+
+On macOS or Linux, run the build script from the project root:
+
+```bash
+./make
+```
+
+This creates `.mlps_pe_runtime/` and installs the toolkit’s Python package dependencies. The existing `./mlps_pe` launcher automatically uses that runtime.
+
+On Windows PowerShell, run:
+
+```powershell
+.\make.ps1
+```
+
+The Windows build creates `.mlps_pe_runtime\` and installs the same package requirements. The dispatcher can then be run with:
+
+```powershell
+.\.mlps_pe_runtime\Scripts\python.exe .\python\toolkit\mlps_pe.py --help
+```
+
+The `.mlps_pe_runtime/` directory is a local generated runtime and is excluded from version control.
 
 ## CI
 
