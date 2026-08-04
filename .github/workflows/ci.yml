@@ -32,7 +32,14 @@ jobs:
       - name: Python syntax check
         shell: bash
         run: |
-          python -m py_compile build_sbatch.py python/*.py
+          python -m py_compile build_sbatch.py python/*.py python/toolkit/mlps_pe.py
+
+      - name: MLPS toolkit dispatcher check
+        shell: bash
+        run: |
+          ./mlps_pe --help > /tmp/mlps_pe_help.txt
+          grep -q "Available modules:" /tmp/mlps_pe_help.txt
+          grep -q "format_fasta" /tmp/mlps_pe_help.txt
 
       - name: Nextflow config validation
         shell: bash
