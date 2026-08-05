@@ -26,8 +26,7 @@ def parseBoolParam(value, name) {
     throw new IllegalArgumentException("Parameter --${name} must be yes/no or true/false. Received: ${value}")
 }
 
-// Normalize human-readable byte sizes so the Python cleanup helper receives a
-// concrete integer threshold regardless of how the user expressed the value.
+// Normalize human-readable byte sizes so the Python cleanup helper receives a concrete integer threshold regardless of how the user expressed the value.
 def parseSizeParam(value, name) {
     def normalized = value?.toString()?.trim()?.toUpperCase()
     if( !normalized ) {
@@ -51,8 +50,7 @@ def parseSizeParam(value, name) {
     return amount * multiplier
 }
 
-// Canonicalize path-style parameters up front so the workflow logs and all
-// downstream helpers see the same resolved filesystem location.
+// Canonicalize path-style parameters up front so the workflow logs and all downstream helpers see the same resolved filesystem location.
 def resolvePathParam(value, name, boolean mustExist = true) {
     if( value == null ) {
         if( mustExist ) {
@@ -150,8 +148,7 @@ def resolvePrimerFastaParams(fwdValue, revValue) {
 // Workflow Finalizers
 // ========================================================================================
 
-// Always attempt to merge the published summary TSVs into one project-level table
-// when the workflow terminates, even if execution ended in failure after some samples passed.
+// Always attempt to merge the published summary TSVs into one project-level table when the workflow terminates, even if execution ended in failure after some samples passed.
 def mergePublishedSummaryResults() {
     def outdirValue = params.outdir?.toString()
     def projectNameValue = resolveProjectNameFromOutdir(outdirValue)
@@ -327,13 +324,29 @@ def cleanupTemporaryTaskData() {
     }
 }
 
+// Print a terminal summary directly to stdout.
+def printCompletionSummary() {
+    def stats = workflow.stats
+    def completedAt = workflow.complete ?: new Date()
+    def status = workflow.success ? 'SUCCEEDED' : 'FAILED'
+
+    println ''
+    println '============================================================'
+    println "Pipeline status: ${status}"
+    def timeFormat = java.time.format.DateTimeFormatter.ofPattern('dd-MMM-yyyy HH:mm:ss')
+    println "Completed at   : ${completedAt.format(timeFormat)}"
+    println "Duration       : ${workflow.duration}"
+    println "Succeeded      : ${stats.succeededCount}"
+    println "Failed         : ${stats.failedCount}"
+    println "============================================================"
+}
+
 
 // ========================================================================================
 // Input Discovery Helpers
 // ========================================================================================
 
-// Parse one CSV line while preserving commas embedded inside quoted fields so the
-// workflow can accept sample sheets exported from spreadsheet applications.
+// Parse one CSV line while preserving commas embedded inside quoted fields so the workflow can accept sample sheets exported from spreadsheet applications.
 def parseCsvLine(String line) {
     def values = []
     def current = new StringBuilder()
@@ -371,8 +384,7 @@ def parseCsvLine(String line) {
 }
 
 def resolveInputReadPath(String value, String columnName, int rowNumber, File baseDir) {
-    // Resolve relative FASTQ paths against the sample-sheet directory so the same
-    // input CSV works whether the workflow is launched locally or from SBATCH wrappers.
+    // Resolve relative FASTQ paths against the sample-sheet directory so the same input CSV works whether the workflow is launched locally or from SBATCH wrappers.
     if( !value ) {
         throw new IllegalArgumentException("Row ${rowNumber} in --inputcsv is missing ${columnName}")
     }
@@ -462,8 +474,7 @@ def discoverInputPairs(String inputCsvPath) {
 // Workflow Validation
 // ========================================================================================
 
-// Validate user parameters early so the workflow fails with a clear message
-// before expensive processing begins.
+// Validate user parameters early so the workflow fails with a clear message before expensive processing begins.
 def validateParams() {
     params.inputcsv = resolvePathParam(params.inputcsv, 'inputcsv')
     params.outdir = resolvePathParam(params.outdir ?: 'results', 'outdir', false)
@@ -601,4 +612,5 @@ workflow {
     mergePublishedSummaryResults()
     exportPipelineCommandAudit()
     cleanupTemporaryTaskData()
+    printCompletionSummary()
 }

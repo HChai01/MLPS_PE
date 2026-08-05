@@ -255,6 +255,8 @@ process SUBSAMPLE_READS {
 process ADAPTER_TRIM {
     tag { meta.id }
     publishDir "${params.outdir}/03_adapter_trimming", mode: 'symlink'
+    publishDir "${params.outdir}/03_adapter_trimming", mode: 'copy', pattern: '*.readinfo.txt.gz'
+    publishDir "${params.outdir}/03_adapter_trimming", mode: 'copy', pattern: '*.cutadapt.log'
     conda "${projectDir}/environment/cutadapt_env.yml"
 
 
@@ -264,6 +266,8 @@ process ADAPTER_TRIM {
 
     output:
     tuple val(meta), path("${meta.id}.R1.f3.fastq.gz"), path("${meta.id}.R2.f3.fastq.gz"), emit: pair
+    path("${meta.id}.readinfo.txt.gz")
+    path("${meta.id}.cutadapt.log")
 
     script:
     """
@@ -279,7 +283,10 @@ process ADAPTER_TRIM {
         -e 0.1 \
         -m 15 \
         --cores=${task.cpus} \
-        --quiet
+        --info-file "${meta.id}.readinfo.txt" \
+        > "${meta.id}.cutadapt.log"
+    
+    gzip "${meta.id}.readinfo.txt"
     """
 
     stub:
@@ -380,13 +387,13 @@ process FORMAT_TARGET_REFERENCE {
 
     script:
     """
-    python "${projectDir}/python/format_fasta.py" "${target_reference}" \
+    python "${projectDir}/python/format_fasta.py" --input "${target_reference}" \
         --uppercase yes \
         --removegap yes \
         --double no \
         --output ref.format.fasta
 
-    python "${projectDir}/python/format_fasta.py" "${target_reference}" \
+    python "${projectDir}/python/format_fasta.py" --input "${target_reference}" \
         --uppercase yes \
         --removegap yes \
         --double yes \
@@ -519,7 +526,7 @@ process PREPARE_SAMPLE_REFERENCE {
     script:
     """
     cp "${reference_fasta}" "${meta.id}.selected.fasta"
-    python "${projectDir}/python/format_fasta.py" "${reference_fasta}" \
+    python "${projectDir}/python/format_fasta.py" --input "${reference_fasta}" \
         --uppercase yes \
         --removegap yes \
         --double yes \
@@ -872,7 +879,7 @@ process PREPARE_PATCHED_REFERENCE {
 
     script:
     def prepCmd = params.target_genome_type == 'circular'
-        ? """python "${projectDir}/python/format_fasta.py" "${patched_reference}" --uppercase yes --removegap yes --double yes --output "${meta.id}.patchedref.fasta" """
+        ? """python "${projectDir}/python/format_fasta.py" --input "${patched_reference}" --uppercase yes --removegap yes --double yes --output "${meta.id}.patchedref.fasta" """
         : """cp "${patched_reference}" "${meta.id}.patchedref.fasta" """
     """
     cp "${patched_reference}" "${meta.id}.patchedref.original.fasta"
