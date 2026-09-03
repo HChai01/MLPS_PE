@@ -255,8 +255,8 @@ process SUBSAMPLE_READS {
 process ADAPTER_TRIM {
     tag { meta.id }
     publishDir "${params.outdir}/03_adapter_trimming", mode: 'symlink'
-    publishDir "${params.outdir}/03_adapter_trimming", mode: 'copy', pattern: '*.readinfo.txt.gz'
-    publishDir "${params.outdir}/03_adapter_trimming", mode: 'copy', pattern: '*.cutadapt.log'
+    publishDir "${params.outdir}/03_adapter_trimming", mode: 'symlink', pattern: '*.readinfo.*.txt.gz'
+    publishDir "${params.outdir}/03_adapter_trimming", mode: 'copy', pattern: '*.cutadaptsummary.*.json'
     conda "${projectDir}/environment/cutadapt_env.yml"
 
 
@@ -266,27 +266,38 @@ process ADAPTER_TRIM {
 
     output:
     tuple val(meta), path("${meta.id}.R1.f3.fastq.gz"), path("${meta.id}.R2.f3.fastq.gz"), emit: pair
-    path("${meta.id}.readinfo.txt.gz")
-    path("${meta.id}.cutadapt.log")
+    tuple path("${meta.id}.readinfo.3p.txt.gz"), path("${meta.id}.readinfo.5p.txt.gz")
+    tuple path("${meta.id}.cutadaptsummary.3p.json"), path("${meta.id}.cutadaptsummary.5p.json")
 
     script:
     """
     cutadapt \
-        -g "^file:${fwd_primer}" \
-        -G "^file:${rev_primer}" \
+        --interleaved \
         -a "file:${projectDir}/reference/known_3_adapters.fasta" \
         -A "file:${projectDir}/reference/known_3_adapters.fasta" \
-        -o "${meta.id}.R1.f3.fastq.gz" \
-        -p "${meta.id}.R2.f3.fastq.gz" \
+        -o - \
         "${read1}" "${read2}" \
         --overlap 5 \
         -e 0.1 \
         -m 15 \
         --cores=${task.cpus} \
-        --info-file "${meta.id}.readinfo.txt" \
-        > "${meta.id}.cutadapt.log"
+        --info-file "${meta.id}.readinfo.3p.txt" \
+        --json="${meta.id}.cutadaptsummary.3p.json" \
+        | cutadapt \
+            --interleaved \
+            -g "^file:${fwd_primer}" \
+            -G "^file:${rev_primer}" \
+            -o "${meta.id}.R1.f3.fastq.gz" \
+            -p "${meta.id}.R2.f3.fastq.gz" \
+            - \
+            --overlap 5 \
+            -e 0.1 \
+            -m 15 \
+            --cores=${task.cpus} \
+            --info-file "${meta.id}.readinfo.5p.txt" \
+            --json="${meta.id}.cutadaptsummary.5p.json"
     
-    gzip "${meta.id}.readinfo.txt"
+    gzip "${meta.id}.readinfo.3p.txt" "${meta.id}.readinfo.5p.txt"
     """
 
     stub:
