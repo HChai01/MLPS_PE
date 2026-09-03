@@ -64,7 +64,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--inputcsv", type=Path, required=True, help="Sample list CSV file")
     parser.add_argument("--rundir", type=Path, required=True, help="Run directory")
     parser.add_argument("--human_db", required=True, help="Human database path")
-    parser.add_argument("--target_reference", required=True, help="Target reference path")
+    parser.add_argument("--target_reference",  type=Path, required=True, help="Target reference path")
+    parser.add_argument("--fwd_primer_seq",  type=Path, required=False, help="forward primer sequence to trim in R1 file")
+    parser.add_argument("--rev_primer_seq",  type=Path, required=False, help="reverse primer sequence to trim in R2 file")
     parser.add_argument(
         "--target_genome_type",
         choices=["linear", "circular"],
@@ -147,6 +149,8 @@ def make_sbatch_script(
     sbatch_partition: str,
     pipeline_path: Path,
     human_db: str,
+    fwd_primer_seq: str,
+    rev_primer_seq: str,
     target_reference: str,
     target_genome_type: str,
     dedup: str,
@@ -167,6 +171,8 @@ def make_sbatch_script(
         f"  --inputcsv {shell_quote(rundir / job_id / f'{job_id}.input.csv')} {backslash}",
         f"  --outdir {shell_quote(rundir / job_id)} {backslash}",
         f"  --human_db {shell_quote(human_db)} {backslash}",
+        f"  --fwd_primer_seq {shell_quote(fwd_primer_seq)} {backslash}",
+        f"  --rev_primer_seq {shell_quote(rev_primer_seq)} {backslash}",
         f"  --target_reference {shell_quote(target_reference)} {backslash}",
         f"  --target_genome_type {shell_quote(target_genome_type)} {backslash}",
         f"  --dedup {shell_quote(dedup)} {backslash}",
@@ -214,6 +220,8 @@ def main() -> None:
             pipeline_path=pipeline_path,
             human_db=args.human_db,
             target_reference=args.target_reference,
+            fwd_primer_seq=args.fwd_primer_seq,
+            rev_primer_seq=args.rev_primer_seq,
             target_genome_type=args.target_genome_type,
             dedup=args.dedup,
         )
