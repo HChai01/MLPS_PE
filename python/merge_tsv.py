@@ -56,11 +56,40 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--indir", required=True, type=Path, help="Input directory containing TSV files")
     parser.add_argument("--id", dest="id_col", required=True, help="Shared identifier column name")
+    parser.add_argument(
+        "--samplecsv",
+        type=Path,
+        help="Optional input CSV containing job_id and sample_name for final results",
+    )
     parser.add_argument("--outputtsv", required=True, type=Path, help="Output TSV file path")
     return parser
 
 
-def merge_tsv_files(input_dir: Path, id_column: str, output_tsv: Path) -> None:
+def load_sample_names(sample_csv: Path | None) -> dict[str, str]:
+    """Load job_id-to-sample_name mappings from the original input CSV."""
+    if sample_csv is None:
+        return {}
+    if not sample_csv.is_file():
+        raise SystemExit(f"--samplecsv is not a file: {sample_csv}")
+
+    with sample_csv.open("r", newline="", encoding="utf-8-sig") as handle:
+        reader = csv.DictReader(handle)
+        required = {"job_id", "sample_name"}
+        if not reader.fieldnames or not required.issubset(reader.fieldnames):
+            raise SystemExit("--samplecsv must contain job_id and sample_name columns")
+        return {
+            (row.get("job_id") or "").strip(): (row.get("sample_name") or "").strip()
+            for row in reader
+            if (row.get("job_id") or "").strip()
+        }
+
+
+def merge_tsv_files(
+    input_dir: Path,
+    id_column: str,
+    output_tsv: Path,
+    sample_csv: Path | None = None,
+) -> None:
     """Merge TSV rows by identifier, preserving first-seen row and column order."""
     tsv_files = sorted(
         path for path in input_dir.glob("*.tsv") if path.resolve() != output_tsv.resolve()
@@ -108,13 +137,22 @@ def merge_tsv_files(input_dir: Path, id_column: str, output_tsv: Path) -> None:
                         merged_rows[sample_id][column] = value
 
     output_tsv.parent.mkdir(parents=True, exist_ok=True)
+    sample_names = load_sample_names(sample_csv)
     with output_tsv.open("w", newline="", encoding="utf-8") as output_handle:
         writer = csv.writer(output_handle, delimiter="\t", lineterminator="\n")
-        writer.writerow([id_column] + ordered_columns)
+        output_columns = [id_column]
+        if sample_csv is not None:
+            output_columns.append("sample_name")
+        output_columns.extend(ordered_columns)
+        writer.writerow(output_columns)
 
         for sample_id in sample_order:
             record = merged_rows.get(sample_id, {})
-            writer.writerow([sample_id] + [record.get(column, "NA") for column in ordered_columns])
+            row = [sample_id]
+            if sample_csv is not None:
+                row.append(sample_names.get(sample_id, "NA"))
+            row.extend(record.get(column, "NA") for column in ordered_columns)
+            writer.writerow(row)
 
     logger.info("Merged TSV written to %s", output_tsv)
 
@@ -129,7 +167,7 @@ def main() -> None:
     if not args.indir.is_dir():
         raise SystemExit(f"--indir is not a directory: {args.indir}")
 
-    merge_tsv_files(args.indir, args.id_col, args.outputtsv)
+    merge_tsv_files(args.indir, args.id_col, args.outputtsv, args.samplecsv)
 
 
 if __name__ == "__main__":

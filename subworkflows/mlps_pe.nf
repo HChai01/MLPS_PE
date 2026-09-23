@@ -270,107 +270,107 @@ workflow MLPS_PE_PIPELINE {
     MERGE_PREQC_SUMMARY(
         preqc_counts.count_file.map { meta, stage, countFile -> countFile }.collect(),
         '00_preQC_read_counts.tsv',
-        'sample\tPreQC_reads\tPreQC_bases'
+        'job_id\tPreQC_reads\tPreQC_bases'
     )
     MERGE_POSTQF_SUMMARY(
         postqf_counts.count_file.map { meta, stage, countFile -> countFile }.collect(),
         '02_postQF_read_counts.tsv',
-        'sample\tPostQF_reads\tPostQF_bases'
+        'job_id\tPostQF_reads\tPostQF_bases'
     )
     MERGE_POSTSUB_SUMMARY(
         postsub_counts.count_file.map { meta, stage, countFile -> countFile }.collect(),
         '02_postSUB_read_counts.tsv',
-        'sample\tPostSUB_reads\tPostSUB_bases'
+        'job_id\tPostSUB_reads\tPostSUB_bases'
     )
     MERGE_POSTAT_SUMMARY(
         postat_counts.count_file.map { meta, stage, countFile -> countFile }.collect(),
         '03_postAT_read_counts.tsv',
-        'sample\tPostAT_reads\tPostAT_bases'
+        'job_id\tPostAT_reads\tPostAT_bases'
     )
     MERGE_NONHUMAN_SUMMARY(
         nonhuman_counts.count_file.map { meta, stage, countFile -> countFile }.collect(),
         '05_nonhuman_counts.tsv',
-        'sample\tnonhuman_reads\tnonhuman_bases'
+        'job_id\tnonhuman_reads\tnonhuman_bases'
     )
     MERGE_BEST_REF_SUMMARY(
         best_ref_rows.summary_file.map { meta, summaryFile -> summaryFile }.collect(),
         '06_best_ref.tsv',
-        'sample\tBest_ref'
+        'job_id\tBest_ref'
     )
     MERGE_Q40_SUMMARY(
         q40_counts.count_file.map { meta, countFile -> countFile }.collect(),
         '06_multi_q40_read_counts.tsv',
-        'sample\tMulti_q40_reads'
+        'job_id\tMulti_q40_reads'
     )
     MERGE_TARGET_SUMMARY(
         target_counts.count_file.map { meta, stage, countFile -> countFile }.collect(),
         '06_potential_read_counts.tsv',
-        'sample\tPotential_reads\tPotential_bases'
+        'job_id\tPotential_reads\tPotential_bases'
     )
     MERGE_ASSEMBLY_READ_SUMMARY(
         assembly_read_counts.count_file.map { meta, stage, countFile -> countFile }.collect(),
         '08_assembly_read_counts.tsv',
-        'sample\tassembly_reads\tassembly_bases'
+        'job_id\tassembly_reads\tassembly_bases'
     )
     MERGE_CONTIG_COUNT_SUMMARY(
         contig_counts.count_file.map { meta, stage, countFile -> countFile }.collect(),
         '08_contig_counts.tsv',
-        'sample\tcontig_reads\tcontig_bases'
+        'job_id\tcontig_reads\tcontig_bases'
     )
     MERGE_L1_FLAG_SUMMARY(
         l1_flag_counts.flag_file.map { meta, flagFile -> flagFile }.collect(),
         '07_dedup_counts.tsv',
-        'sample\tL1_fwd\tL1_rev\tL1_fwd_dup\tL1_rev_dup'
+        'job_id\tL1_fwd\tL1_rev\tL1_fwd_dup\tL1_rev_dup'
     )
     MERGE_L2_FLAG_SUMMARY(
         l2_flag_counts.flag_file.map { meta, flagFile -> flagFile }.collect(),
         '09_dedup_counts.tsv',
-        'sample\tL2_fwd\tL2_rev\tL2_fwd_dup\tL2_rev_dup'
+        'job_id\tL2_fwd\tL2_rev\tL2_fwd_dup\tL2_rev_dup'
     )
     MERGE_L1_PRIMARY_CIGAR_SUMMARY(
         l1_primary_cigar.cigar_row.map { meta, rowFile -> rowFile }.collect(),
         '07_primarycigar.tsv',
-        'sample\tL1_hardclip_bases\tL1_softclip_bases\tL1_match_bases\tL1_insertion_bases\tL1_deletion_bases'
+        'job_id\tL1_hardclip_bases\tL1_softclip_bases\tL1_match_bases\tL1_insertion_bases\tL1_deletion_bases'
     )
     MERGE_L2_PRIMARY_CIGAR_SUMMARY(
         l2_primary_cigar.cigar_row.map { meta, rowFile -> rowFile }.collect(),
         '09_primarycigar.tsv',
-        'sample\tL2_hardclip_bases\tL2_softclip_bases\tL2_match_bases\tL2_insertion_bases\tL2_deletion_bases'
+        'job_id\tL2_hardclip_bases\tL2_softclip_bases\tL2_match_bases\tL2_insertion_bases\tL2_deletion_bases'
     )
     MERGE_L1_COVERAGE_SUMMARY(
         l1_coverage_rows.coverage_row.map { meta, rowFile -> rowFile }.collect(),
         '07_L1_coverage.tsv',
-        'sample\tave_covs\tmedian_covs\thighest_ave_cov\thighest_median_cov'
+        'job_id\tave_covs\tmedian_covs\thighest_ave_cov\thighest_median_cov'
     )
     MERGE_L2_COVERAGE_SUMMARY(
         l2_coverage_rows.coverage_row.map { meta, rowFile -> rowFile }.collect(),
         '09_L2_coverage.tsv',
-        'sample\tave_covs\tmedian_covs\thighest_ave_cov\thighest_median_cov'
+        'job_id\tave_covs\tmedian_covs\thighest_ave_cov\thighest_median_cov'
     )
     MERGE_L1_VARIANT_SUMMARY(
         l1_variants.status_file.map { meta, rowFile -> rowFile }.collect(),
         '07_variant_status.tsv',
-        'sample\tL1_variant_sites\tL1_high_qual_variants'
+        'job_id\tL1_variant_sites\tL1_high_qual_variants'
     )
     MERGE_L2_VARIANT_SUMMARY(
         l2_variant_rows.status_file.map { meta, rowFile -> rowFile }.collect(),
         '09_variant_status.tsv',
-        'sample\tL2_variant_sites\tL2_high_qual_variants'
+        'job_id\tL2_variant_sites\tL2_high_qual_variants'
     )
     MERGE_L1_SAMTOOLSSEQ_SUMMARY(
         l1_consensus.fasta_summary_row.map { meta, rowFile -> rowFile }.collect(),
         '07_samtoolsseq_summmary.tsv',
-        'sample\tL1_high_cof_pos\tL1_low_cof_pos\tL1_ambiguous_pos\tL1_gap_pos'
+        'job_id\tL1_high_cof_pos\tL1_low_cof_pos\tL1_ambiguous_pos\tL1_gap_pos'
     )
     MERGE_L1_BCFSEQ_SUMMARY(
         l1_variants.fasta_summary_row.map { meta, rowFile -> rowFile }.collect(),
         '07_bcfseq_summmary.tsv',
-        'sample\tL1_high_cof_pos\tL1_low_cof_pos\tL1_ambiguous_pos\tL1_gap_pos'
+        'job_id\tL1_high_cof_pos\tL1_low_cof_pos\tL1_ambiguous_pos\tL1_gap_pos'
     )
     MERGE_L2_SAMTOOLSSEQ_SUMMARY(
         l2_consensus.fasta_summary_row.map { meta, rowFile -> rowFile }.collect(),
         '09_samtoolsseq_summmary.tsv',
-        'sample\tL2_high_cof_pos\tL2_low_cof_pos\tL2_ambiguous_pos\tL2_gap_pos'
+        'job_id\tL2_high_cof_pos\tL2_low_cof_pos\tL2_ambiguous_pos\tL2_gap_pos'
     )
 
     MERGE_L1_CALLEDBASES_FASTA(

@@ -164,12 +164,14 @@ def mergePublishedSummaryResults() {
     }
 
     def mergeScript = new File(projectDir.toString(), 'python/merge_tsv.py')
+    def inputCsvPath = new File(params.inputcsv.toString()).getCanonicalPath()
     def outputTsv = new File(summaryDir, "${projectNameValue}.results.tsv")
     def command = [
         'python3',
         mergeScript.absolutePath,
         '--indir', summaryDir.absolutePath,
-        '--id', 'sample',
+        '--id', 'job_id',
+        '--samplecsv', inputCsvPath,
         '--outputtsv', outputTsv.absolutePath
     ]
 

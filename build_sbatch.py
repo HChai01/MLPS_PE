@@ -166,6 +166,8 @@ def make_sbatch_script(
         f"#SBATCH -e {shell_quote(rundir / 'sbatch' / f'{job_id}.sbatch.err')}",
         f"#SBATCH -p {sbatch_partition}",
         "",
+        f"cd {shell_quote(rundir / job_id)}",
+        "",
         f"{shell_quote(pipeline_path / 'nextflow')} -log {shell_quote(rundir / job_id / f'{job_id}.log')} {backslash}",
         f"  run {shell_quote(pipeline_path / 'main.nf')} {backslash}",
         f"  --inputcsv {shell_quote(rundir / job_id / f'{job_id}.input.csv')} {backslash}",
