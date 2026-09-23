@@ -1129,7 +1129,7 @@ process BCFTOOLS_VARIANTS {
 
 
     input:
-    tuple val(meta), path(bam), path(reference_fasta), path(mask_bed), val(stage_name)
+    tuple val(meta), path(bam), path(reference_fasta), path(reference_double), path(mask_bed), val(stage_name)
 
     output:
     tuple val(meta), path('*.bcfconsensus.fasta'), emit: consensus_fasta
@@ -1143,19 +1143,34 @@ process BCFTOOLS_VARIANTS {
     script:
     def summaryName = stage_name.startsWith('07_') ? "${meta.id}.07_bcfseq_summmary.tsv" : stage_name.startsWith('09_') ? "${meta.id}.09_bcfseq_summmary.tsv" : "${meta.id}.${stage_name}_bcfseq_summmary.tsv"
     def summaryPrefix = stage_name.startsWith('07_') ? 'L1' : stage_name.startsWith('09_') ? 'L2' : stage_name
+    def circular = params.target_genome_type == 'circular'
+    def mappingReference = circular ? reference_double.getName() : reference_fasta.getName()
+    def consensusReference = circular ? "${meta.id}.bcfconsensus.linear.fasta" : "${meta.id}.bcfconsensus.fasta"
+    def maskReference = circular ? "${meta.id}.mask.double.bed" : mask_bed.getName()
+    def circularMask = circular ? """
+    ref_length=\$(awk 'NR==2 {print length(\$0); exit}' "${reference_fasta}")
+    awk -v shift=\"\${ref_length}\" 'BEGIN{OFS=\"\\t\"} NF>=3 {print; print \$1, \$2+shift, \$3+shift}' "${mask_bed}" > "${maskReference}"
+    """ : ''
+    def lineariseConsensus = circular ? """
+    ref_length=\$(awk 'NR==2 {print length(\$0); exit}' "${reference_fasta}")
+    awk -v n=\"\${ref_length}\" 'NR==1 {print; next} NR==2 {print substr(\$0,1,n)}' "${meta.id}.bcfconsensus.fasta" > "${consensusReference}"
+    mv "${consensusReference}" "${meta.id}.bcfconsensus.fasta"
+    """ : ''
     """
-    bcftools mpileup -Ou -Q ${params.bq_thr} -f "${reference_fasta}" "${bam}" \
+    ${circularMask}
+    bcftools mpileup -Ou -Q ${params.bq_thr} -f "${mappingReference}" "${bam}" \
       | bcftools call -mv --ploidy 1 -Oz -o "${meta.id}.vcf.gz"
     bcftools index "${meta.id}.vcf.gz"
-    bcftools norm -f "${reference_fasta}" -Oz -o "${meta.id}.norm.vcf.gz" "${meta.id}.vcf.gz"
+    bcftools norm -f "${mappingReference}" -Oz -o "${meta.id}.norm.vcf.gz" "${meta.id}.vcf.gz"
     bcftools index "${meta.id}.norm.vcf.gz"
     python "${projectDir}/python/extract_vcf_info.py" \
       --input "${meta.id}.norm.vcf.gz" \
       --outputtsv "${meta.id}.norm.vcf.tsv"
     bcftools view -i "DP>${params.depth_thr} && QUAL>${params.qual_thr}" "${meta.id}.norm.vcf.gz" -Oz -o "${meta.id}.filter.vcf.gz"
     bcftools index "${meta.id}.filter.vcf.gz"
-    bcftools consensus -f "${reference_fasta}" -m "${mask_bed}" "${meta.id}.filter.vcf.gz" \
+    bcftools consensus -f "${mappingReference}" -m "${maskReference}" "${meta.id}.filter.vcf.gz" \
       | sed "1s/^>.*/>${meta.id}_bcfconsensus/" > "${meta.id}.bcfconsensus.fasta"
+    ${lineariseConsensus}
     python "${projectDir}/python/get_fasta_summary.py" \
       --input "${meta.id}.bcfconsensus.fasta" \
       --prefix "${summaryPrefix}" \

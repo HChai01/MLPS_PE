@@ -194,7 +194,7 @@ workflow MLPS_PE_PIPELINE {
     l1_variant_input = l1_bams_by_id
         .join(sample_reference_by_id)
         .join(l1_depth_mask.depth_mask.map { meta, depthFile, maskFile -> tuple(meta.id, meta, depthFile, maskFile) })
-        .map { sampleId, bamMeta, bam, refMeta, sampleRef, sampleDoubleRef, maskMeta, depthFile, maskFile -> tuple(bamMeta, bam, sampleRef, maskFile, '07_L1_results') }
+        .map { sampleId, bamMeta, bam, refMeta, sampleRef, sampleDoubleRef, maskMeta, depthFile, maskFile -> tuple(bamMeta, bam, sampleRef, sampleDoubleRef, maskFile, '07_L1_results') }
     l1_variants = BUILD_L1_VARIANTS(l1_variant_input)
 
     // Step 10: assemble contigs from normalized target reads and project them back to the reference.
@@ -254,7 +254,7 @@ workflow MLPS_PE_PIPELINE {
         l2_variant_input = l2_bams_by_id
             .join(patched_reference_by_id)
             .join(l2_depth_mask.depth_mask.map { meta, depthFile, maskFile -> tuple(meta.id, meta, depthFile, maskFile) })
-            .map { sampleId, bamMeta, bam, refMeta, originalRef, mappingRef, maskMeta, depthFile, maskFile -> tuple(bamMeta, bam, mappingRef, maskFile, '09_L2_results') }
+            .map { sampleId, bamMeta, bam, refMeta, originalRef, mappingRef, maskMeta, depthFile, maskFile -> tuple(bamMeta, bam, originalRef, mappingRef, maskFile, '09_L2_results') }
         l2_variant_rows = BUILD_L2_VARIANTS(l2_variant_input)
     }
     else {
