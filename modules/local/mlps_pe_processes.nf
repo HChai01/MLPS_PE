@@ -262,12 +262,12 @@ process ADAPTER_TRIM {
 
 
     input:
-    tuple val(meta), path(read1), path(read2), val(fwd_primer), val(rev_primer)
+    tuple val(meta), path(read1), path(read2), path(fwd_primer), path(rev_primer), path(rc_fwd_primer), path(rc_rev_primer)
 
     output:
     tuple val(meta), path("${meta.id}.R1.f3.fastq.gz"), path("${meta.id}.R2.f3.fastq.gz"), emit: pair
-    tuple path("${meta.id}.readinfo.3p.txt.gz"), path("${meta.id}.readinfo.5p.txt.gz")
-    tuple path("${meta.id}.cutadaptsummary.3p.json"), path("${meta.id}.cutadaptsummary.5p.json")
+    tuple path("${meta.id}.readinfo.3p_adapter.txt.gz"), path("${meta.id}.readinfo.5p_primer.txt.gz"), path("${meta.id}.readinfo.3p_rc_primer.txt.gz"), emit: readinfo
+    tuple path("${meta.id}.cutadaptsummary.3p_adapter.json"), path("${meta.id}.cutadaptsummary.5p_primer.json"), path("${meta.id}.cutadaptsummary.3p_rc_primer.json"), emit: json
 
     script:
     """
@@ -281,23 +281,35 @@ process ADAPTER_TRIM {
         -e 0.1 \
         -m 15 \
         --cores=${task.cpus} \
-        --info-file "${meta.id}.readinfo.3p.txt" \
-        --json="${meta.id}.cutadaptsummary.3p.json" \
+        --info-file "${meta.id}.readinfo.3p_adapter.txt" \
+        --json="${meta.id}.cutadaptsummary.3p_adapter.json" \
         | cutadapt \
             --interleaved \
-            -g "^file:${fwd_primer}" \
-            -G "^file:${rev_primer}" \
-            -o "${meta.id}.R1.f3.fastq.gz" \
-            -p "${meta.id}.R2.f3.fastq.gz" \
+            -g "file:${fwd_primer}" \
+            -G "file:${rev_primer}" \
+            -o - \
             - \
             --overlap 5 \
             -e 0.1 \
             -m 15 \
             --cores=${task.cpus} \
-            --info-file "${meta.id}.readinfo.5p.txt" \
-            --json="${meta.id}.cutadaptsummary.5p.json"
-    
-    gzip "${meta.id}.readinfo.3p.txt" "${meta.id}.readinfo.5p.txt"
+            --info-file "${meta.id}.readinfo.5p_primer.txt" \
+            --json="${meta.id}.cutadaptsummary.5p_primer.json" \
+            | cutadapt \
+                --interleaved \
+                -a "file:${rc_rev_primer}" \
+                -A "file:${rc_fwd_primer}" \
+                -o "${meta.id}.R1.f3.fastq.gz" \
+                -p "${meta.id}.R2.f3.fastq.gz" \
+                - \
+                --overlap 5 \
+                -e 0.1 \
+                -m 15 \
+                --cores=${task.cpus} \
+                --info-file "${meta.id}.readinfo.3p_rc_primer.txt" \
+                --json="${meta.id}.cutadaptsummary.3p_rc_primer.json"
+
+    gzip "${meta.id}.readinfo.3p_adapter.txt" "${meta.id}.readinfo.5p_primer.txt" "${meta.id}.readinfo.3p_rc_primer.txt"
     """
 
     stub:
@@ -382,6 +394,7 @@ process REMOVE_HUMAN_READS {
 // Build cleaned linear and doubled target references used by downstream alignment steps.
 // Output: `ref.format.fasta` and `ref.double.fasta` under `reference/`.
 process FORMAT_TARGET_REFERENCE {
+    tag { 'reference-preparation' }
     label 'light'
     publishDir "${params.outdir}/04_reference", mode: 'copy'
     conda "${projectDir}/environment/samtools_env.yml"
@@ -415,6 +428,58 @@ process FORMAT_TARGET_REFERENCE {
     """
     cp "${target_reference}" ref.format.fasta
     cp "${target_reference}" ref.double.fasta
+    """
+}
+
+// Generate anchored forward, reverse, and reverse-complemented primer FASTA files once for adapter trimming.
+// Output: four `*.anchored.fasta` files under `03_adapter_trimming/`.
+process FORMAT_RC_PRIMERS {
+    tag { 'primer-preparation' }
+    label 'light'
+    publishDir "${params.outdir}/03_adapter_trimming", mode: 'copy'
+    conda "${projectDir}/environment/samtools_env.yml"
+
+    input:
+    tuple path(fwd_primer, stageAs: 'input_fwd_primer.fasta'), path(rev_primer, stageAs: 'input_rev_primer.fasta')
+
+    output:
+    tuple path("fwd_primer.anchored.fasta"), path("rev_primer.anchored.fasta"), path("rc_fwd_primer.anchored.fasta"), path("rc_rev_primer.anchored.fasta"), emit: primers
+
+    script:
+    """
+    python "${projectDir}/python/format_fasta.py" --input "${fwd_primer}" \
+        --uppercase yes \
+        --rmanchor yes \
+        --5pedit "^" \
+        --output fwd_primer.anchored.fasta
+
+    python "${projectDir}/python/format_fasta.py" --input "${rev_primer}" \
+        --uppercase yes \
+        --rmanchor yes \
+        --5pedit "^" \
+        --output rev_primer.anchored.fasta
+
+    python "${projectDir}/python/format_fasta.py" --input "${fwd_primer}" \
+        --uppercase yes \
+        --rmanchor yes \
+        --revcomp dna \
+        --3pedit "\$" \
+        --output rc_fwd_primer.anchored.fasta
+
+    python "${projectDir}/python/format_fasta.py" --input "${rev_primer}" \
+        --uppercase yes \
+        --rmanchor yes \
+        --revcomp dna \
+        --3pedit "\$" \
+        --output rc_rev_primer.anchored.fasta
+    """
+
+    stub:
+    """
+    cp "${fwd_primer}" fwd_primer.anchored.fasta
+    cp "${rev_primer}" rev_primer.anchored.fasta
+    cp "${fwd_primer}" rc_fwd_primer.anchored.fasta
+    cp "${rev_primer}" rc_rev_primer.anchored.fasta
     """
 }
 

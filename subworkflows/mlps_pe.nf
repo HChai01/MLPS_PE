@@ -11,6 +11,7 @@ include {
     GENERATE_PREQC;
     QUALITY_TRIM;
     SUBSAMPLE_READS;
+    FORMAT_RC_PRIMERS;
     ADAPTER_TRIM;
     CHECK_HUMAN_REFERENCE;
     REMOVE_HUMAN_READS;
@@ -105,10 +106,13 @@ workflow MLPS_PE_PIPELINE {
     postsub_counts = COUNT_POSTSUB_READS(
         subsampled_fastqs.pair.map { meta, read1, read2 -> tuple(meta, read1, read2, '02_postSUB_read_counts') }
     )
+    anchored_primer_files = FORMAT_RC_PRIMERS(primer_files)
     adapter_trimmed_fastqs = ADAPTER_TRIM(
         subsampled_fastqs.pair
-            .combine(primer_files)
-            .map { meta, read1, read2, fwdPrimer, revPrimer -> tuple(meta, read1, read2, fwdPrimer, revPrimer) }
+            .combine(anchored_primer_files.primers)
+            .map { meta, read1, read2, fwdPrimer, revPrimer, rcFwdPrimer, rcRevPrimer ->
+                tuple(meta, read1, read2, fwdPrimer, revPrimer, rcFwdPrimer, rcRevPrimer)
+            }
     )
     postat_counts = COUNT_POSTAT_READS(
         adapter_trimmed_fastqs.pair.map { meta, read1, read2 -> tuple(meta, read1, read2, '03_postAT_read_counts') }

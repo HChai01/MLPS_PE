@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """
 Script Name:  format_fasta.py
-Description:  Convert a FASTA file into a two-line normalized FASTA with optional sequence cleanup.
+Description:  Convert a FASTA file into a two-line normalized FASTA with optional sequence edits.
 Author:       Dr. Haiting Chai
-Last update:  2026-APR-11
-Version:      ver.2026-04-11
+Last update:  2026-SEP-24
+Version:      ver.2026-09-24
 
 DEPENDENCIES:
     - Python 3.10
@@ -55,9 +55,13 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--input", help="Input FASTA file")
     parser.add_argument("--output", help="Output FASTA file")
     parser.add_argument("--split", help="Delimiter used to trim FASTA headers")
-    parser.add_argument("--uppercase", default="no", help="Convert sequence to uppercase: yes/no")
-    parser.add_argument("--removegap", default="no", help="Remove '-' and '.' gap characters: yes/no")
-    parser.add_argument("--double", default="no", help="Duplicate the sequence body: yes/no")
+    parser.add_argument("--uppercase", default="no", help="Convert sequence to uppercase: yes/no, default: no")
+    parser.add_argument("--removegap", default="no", help="Remove '-' and '.' gap characters: yes/no, , default: no")
+    parser.add_argument("--rmanchor", default="yes", help="Remove '^' and '$' anchor characters: yes/no, default: yes")
+    parser.add_argument("--revcomp", default="no", type=str.lower, choices=("no", "dna", "rna"), help="Reverse-complement using DNA or RNA bases: no/dna/rna, , default: no")
+    parser.add_argument("--double", default="no", help="Duplicate the sequence body: yes/no, default: no")
+    parser.add_argument("--5pedit", dest="edit_5p", default="", help="Sequence to add at the 5' end, default:")
+    parser.add_argument("--3pedit", dest="edit_3p", default="", help="Sequence to add at the 3' end, default:")
     return parser
 
 
@@ -72,20 +76,39 @@ def split_header(header: str, user_delimiter: str | None = None) -> str:
     return clean_header
 
 
+DNA_COMPLEMENT = str.maketrans("ACGTRYSWKMBDHVNacgtryswkmbdhvn", "TGCAYRSWMKVHDBNtgcayrswmkvhdbn")
+RNA_COMPLEMENT = str.maketrans("ACGURYSWKMBDHVNacguryswkmbdhvn", "UGCAYRSWMKVHDBNugcayrswmkvhdbn")
+
+
+def reverse_complement(sequence: str, sequence_type: str) -> str:
+    """Return a DNA or RNA reverse complement, including IUPAC ambiguity codes."""
+    complement = DNA_COMPLEMENT if sequence_type == "dna" else RNA_COMPLEMENT
+    return sequence.translate(complement)[::-1]
+
+
 def process_sequence(
     sequence: str,
     *,
     uppercase: bool = False,
     remove_gap: bool = False,
+    remove_anchor: bool = True,
+    revcomp: str = "no",
+    edit_5p: str = "",
+    edit_3p: str = "",
     double_sequence: bool = False,
 ) -> str:
     """Apply the optional sequence normalization steps requested by the CLI."""
     if remove_gap:
         sequence = sequence.replace("-", "").replace(".", "")
+    if remove_anchor:
+        sequence = sequence.replace("^", "").replace("$", "")
     if uppercase:
         sequence = sequence.upper()
+    if revcomp != "no":
+        sequence = reverse_complement(sequence, revcomp)
     if double_sequence:
         sequence = sequence + sequence
+    sequence = edit_5p + sequence + edit_3p
     return sequence
 
 
@@ -96,6 +119,10 @@ def convert_fasta(
     split_char: str | None = None,
     uppercase: bool = False,
     remove_gap: bool = False,
+    remove_anchor: bool = False,
+    revcomp: str = "no",
+    edit_5p: str = "",
+    edit_3p: str = "",
     double_sequence: bool = False,
 ) -> Path:
     """Convert a FASTA file into a normalized two-line FASTA output."""
@@ -119,9 +146,16 @@ def convert_fasta(
                         "".join(sequence_lines),
                         uppercase=uppercase,
                         remove_gap=remove_gap,
+                        remove_anchor=remove_anchor,
+                        revcomp=revcomp,
+                        edit_5p=edit_5p,
+                        edit_3p=edit_3p,
                         double_sequence=double_sequence,
                     )
-                    output_handle.write(f">{split_header(header, split_char)}\n{sequence}\n")
+                    formatted_header = split_header(header, split_char)
+                    if revcomp != "no":
+                        formatted_header += "_RC"
+                    output_handle.write(f">{formatted_header}\n{sequence}\n")
                 header = line
                 sequence_lines = []
             else:
@@ -132,9 +166,16 @@ def convert_fasta(
                 "".join(sequence_lines),
                 uppercase=uppercase,
                 remove_gap=remove_gap,
+                remove_anchor=remove_anchor,
+                revcomp=revcomp,
+                edit_5p=edit_5p,
+                edit_3p=edit_3p,
                 double_sequence=double_sequence,
             )
-            output_handle.write(f">{split_header(header, split_char)}\n{sequence}\n")
+            formatted_header = split_header(header, split_char)
+            if revcomp != "no":
+                formatted_header += "_RC"
+            output_handle.write(f">{formatted_header}\n{sequence}\n")
 
     logger.info("Formatted FASTA written to %s", output_path)
     return output_path
@@ -157,6 +198,10 @@ def main() -> None:
         split_char=args.split,
         uppercase=parse_yes_no(args.uppercase, param_name="--uppercase"),
         remove_gap=parse_yes_no(args.removegap, param_name="--removegap"),
+        remove_anchor=parse_yes_no(args.rmanchor, param_name="--rmanchor"),
+        revcomp=args.revcomp,
+        edit_5p=args.edit_5p,
+        edit_3p=args.edit_3p,
         double_sequence=parse_yes_no(args.double, param_name="--double"),
     )
 
