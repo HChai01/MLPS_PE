@@ -3,8 +3,8 @@
 Script Name:  format_pileup.py
 Description:  Process a pileup file into consensus, patched-reference, and nucleotide-frequency outputs.
 Author:       Dr. Haiting Chai
-Last update:  2026-APR-11
-Version:      ver.2026-04-11
+Last update:  2026-SEP-24
+Version:      ver.2026-09-24
 
 DEPENDENCIES:
     - Python 3.10
@@ -70,7 +70,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Generate pileup-derived consensus and summary outputs.",
     )
-    parser.add_argument("--input", help="Input pileup file")
+    parser.add_argument("--input", required=True, help="Input pileup file")
+    parser.add_argument("--ref", required=True, help="Reference FASTA used when the pileup is empty")
     return parser
 
 
@@ -184,7 +185,32 @@ def parse_pileup(input_path: Path) -> tuple[list[dict[str, str | int]], dict[str
     return rows, sequences
 
 
-def write_outputs(input_path: Path, rows: list[dict[str, str | int]], sequences: dict[str, str]) -> None:
+def read_reference(reference_path: Path) -> tuple[str, str]:
+    """Read the first FASTA record header and sequence."""
+    header = ""
+    sequence_parts: list[str] = []
+    with reference_path.open(encoding="utf-8") as handle:
+        for line in handle:
+            line = line.strip()
+            if not line:
+                continue
+            if line.startswith(">"):
+                if header:
+                    break
+                header = line[1:]
+            elif header:
+                sequence_parts.append(line)
+    if not header or not sequence_parts:
+        raise ValueError(f"Reference FASTA is empty or invalid: {reference_path}")
+    return header, "".join(sequence_parts)
+
+
+def write_outputs(
+    input_path: Path,
+    rows: list[dict[str, str | int]],
+    sequences: dict[str, str],
+    reference: tuple[str, str] | None = None,
+) -> None:
     """Write the CSV and FASTA products derived from one pileup input."""
     sample_name = input_path.stem
     ntfreq_path = input_path.with_suffix(".ntfreq.csv")
@@ -195,7 +221,23 @@ def write_outputs(input_path: Path, rows: list[dict[str, str | int]], sequences:
 
     with ntfreq_path.open("w", encoding="utf-8") as handle:
         handle.write("Ref,Pos,A,C,G,T,N,Depth,CasedConsensus,CalledConsensus,PatchedWithRef,VariantSignal\n")
-        for row in rows:
+        output_rows = rows
+        if not rows:
+            output_rows = [{
+                "Ref": "FAILEDAssembly",
+                "Pos": 1,
+                "A": 0,
+                "C": 0,
+                "G": 0,
+                "T": 0,
+                "N": 0,
+                "Depth": 0,
+                "CasedConsensus": "N",
+                "CalledConsensus": "N",
+                "PatchedWithRef": "N",
+                "VariantSignal": "N",
+            }]
+        for row in output_rows:
             handle.write(
                 "{Ref},{Pos},{A},{C},{G},{T},{N},{Depth},{CasedConsensus},{CalledConsensus},{PatchedWithRef},{VariantSignal}\n".format(
                     **row
@@ -207,7 +249,11 @@ def write_outputs(input_path: Path, rows: list[dict[str, str | int]], sequences:
     with bases_path.open("w", encoding="utf-8") as handle:
         handle.write(f">{sample_name}_calledconsensus\n{sequences['called']}\n")
     with patched_path.open("w", encoding="utf-8") as handle:
-        handle.write(f">{sample_name}_patchedref\n{sequences['patched']}\n")
+        if reference is not None and not rows:
+            reference_header, reference_sequence = reference
+            handle.write(f">{reference_header}\n{reference_sequence}\n")
+        else:
+            handle.write(f">{sample_name}_patchedref\n{sequences['patched']}\n")
     with variant_path.open("w", encoding="utf-8") as handle:
         handle.write(f">{sample_name}_variantsignals\n{sequences['variant']}\n")
 
@@ -227,7 +273,8 @@ def main() -> None:
     args = build_parser().parse_args()
     input_path = Path(args.input)
     rows, sequences = parse_pileup(input_path)
-    write_outputs(input_path, rows, sequences)
+    reference = read_reference(Path(args.ref)) if input_path.stat().st_size == 0 else None
+    write_outputs(input_path, rows, sequences, reference)
 
 
 if __name__ == "__main__":

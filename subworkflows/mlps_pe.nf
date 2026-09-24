@@ -19,7 +19,6 @@ include {
     MIXGENOME_ALIGN;
     EM_REALLOCATE_REFERENCES;
     EXTRACT_TOP_REFERENCE;
-    PREPARE_SAMPLE_REFERENCE;
     BUILD_TARGET_READ_POOL;
     COUNT_Q40_PRIMARY_READS;
     WRITE_BEST_REFERENCE;
@@ -40,6 +39,7 @@ include {
     BUILD_PILEUP as BUILD_L1_PILEUP;
     BUILD_PILEUP as BUILD_ASSEMBLY_PILEUP;
     BUILD_PILEUP as BUILD_L2_PILEUP;
+    ADD_ASSEMBLY_STATUS;
     FORMAT_PILEUP as FORMAT_L1_PILEUP;
     FORMAT_PILEUP as FORMAT_ASSEMBLY_PILEUP;
     FORMAT_PILEUP as FORMAT_L2_PILEUP;
@@ -154,8 +154,7 @@ workflow MLPS_PE_PIPELINE {
         .combine(reference_assets.formatted)
         .map { meta, summaryFile, formattedRef -> tuple(meta, summaryFile, formattedRef) }
     top_references = EXTRACT_TOP_REFERENCE(top_reference_input)
-    sample_references = PREPARE_SAMPLE_REFERENCE(top_references.reference)
-    sample_reference_by_id = sample_references.refs.map { meta, sampleRef, sampleDoubleRef -> tuple(meta.id, meta, sampleRef, sampleDoubleRef) }
+    sample_reference_by_id = top_references.reference.map { meta, sampleRef, sampleDoubleRef -> tuple(meta.id, meta, sampleRef, sampleDoubleRef) }
     best_ref_rows = WRITE_BEST_REFERENCE(top_references.reference)
 
     // Step 8: extract target-mapping reads and build the L1 alignment set.
@@ -193,7 +192,12 @@ workflow MLPS_PE_PIPELINE {
         .map { sampleId, bamMeta, bam, refMeta, sampleRef, sampleDoubleRef -> tuple(bamMeta, bam, sampleRef, sampleDoubleRef) }
     l1_pileups = BUILD_L1_PILEUP(l1_pileup_input)
     l1_consensus = FORMAT_L1_PILEUP(
-        l1_pileups.pileup.map { meta, pileup, original_ref -> tuple(meta, pileup, original_ref, '07_L1_results') }
+        l1_pileups.pileup
+            .map { meta, pileup -> tuple(meta.id, meta, pileup) }
+            .join(sample_reference_by_id)
+            .map { sampleId, pileupMeta, pileup, refMeta, selectedRef, selectedDoubleRef ->
+                tuple(pileupMeta, pileup, selectedRef, '07_L1_results')
+            }
     )
     l1_variant_input = l1_bams_by_id
         .join(sample_reference_by_id)
@@ -221,17 +225,28 @@ workflow MLPS_PE_PIPELINE {
         .join(sample_reference_by_id)
         .map { sampleId, bamMeta, bam, refMeta, sampleRef, sampleDoubleRef -> tuple(bamMeta, bam, sampleRef, sampleDoubleRef) }
     assembly_pileups = BUILD_ASSEMBLY_PILEUP(assembly_pileup_input)
+    contig_counts_with_status = ADD_ASSEMBLY_STATUS(
+        contig_counts.count_file
+            .map { meta, stage, countFile -> tuple(meta.id, meta, countFile) }
+            .join(assembly_pileups.pileup.map { meta, pileup -> tuple(meta.id, meta, pileup) })
+            .map { sampleId, countMeta, countFile, pileupMeta, pileup -> tuple(countMeta, countFile, pileup) }
+    )
     assembly_consensus = FORMAT_ASSEMBLY_PILEUP(
-        assembly_pileups.pileup.map { meta, pileup, original_ref -> tuple(meta, pileup, original_ref, '08_assembly') }
+        assembly_pileups.pileup
+            .map { meta, pileup -> tuple(meta.id, meta, pileup) }
+            .join(sample_reference_by_id)
+            .map { sampleId, pileupMeta, pileup, refMeta, selectedRef, selectedDoubleRef ->
+                tuple(pileupMeta, pileup, selectedRef, '08_assembly')
+            }
     )
 
     // Step 11: patch the sample reference with assembly evidence and realign for L2 consensus.
     // Output: patched reference FASTA files plus final L2 BAMs and consensus FASTA files.
     patched_references = PREPARE_PATCHED_REFERENCE(assembly_consensus.patched_reference)
-    patched_reference_by_id = patched_references.refs.map { meta, originalRef, mappingRef -> tuple(meta.id, meta, originalRef, mappingRef) }
+    patched_reference_by_id = patched_references.refs.map { meta, patchedRef, patchedDoubleRef -> tuple(meta.id, meta, patchedRef, patchedDoubleRef) }
     l2_align_input = target_reads_by_id
         .join(patched_reference_by_id)
-        .map { sampleId, readMeta, read1, read2, refMeta, originalRef, mappingRef -> tuple(readMeta, read1, read2, originalRef, mappingRef) }
+        .map { sampleId, readMeta, read1, read2, refMeta, patchedRef, patchedDoubleRef -> tuple(readMeta, read1, read2, patchedRef, patchedDoubleRef) }
     l2_bams = L2_ALIGN(l2_align_input)
     l2_bams_by_id = l2_bams.bam.map { meta, bam -> tuple(meta.id, meta, bam) }
     l2_flag_counts = COUNT_L2_ALIGNMENT_FLAGS(l2_bams.bam)
@@ -249,10 +264,15 @@ workflow MLPS_PE_PIPELINE {
     )
     l2_pileup_input = l2_bams_by_id
         .join(patched_reference_by_id)
-        .map { sampleId, bamMeta, bam, refMeta, originalRef, mappingRef -> tuple(bamMeta, bam, originalRef, mappingRef) }
+        .map { sampleId, bamMeta, bam, refMeta, patchedRef, patchedDoubleRef -> tuple(bamMeta, bam, patchedRef, patchedDoubleRef) }
     l2_pileups = BUILD_L2_PILEUP(l2_pileup_input)
     l2_consensus = FORMAT_L2_PILEUP(
-        l2_pileups.pileup.map { meta, pileup, original_ref -> tuple(meta, pileup, original_ref, '09_L2_results') }
+        l2_pileups.pileup
+            .map { meta, pileup -> tuple(meta.id, meta, pileup) }
+            .join(patched_reference_by_id)
+            .map { sampleId, pileupMeta, pileup, refMeta, patchedRef, patchedDoubleRef ->
+                tuple(pileupMeta, pileup, patchedRef, '09_L2_results')
+            }
     )
     if( params.target_genome_type == 'linear' ) {
         l2_variant_input = l2_bams_by_id
@@ -317,9 +337,9 @@ workflow MLPS_PE_PIPELINE {
         'job_id\tassembly_reads\tassembly_bases'
     )
     MERGE_CONTIG_COUNT_SUMMARY(
-        contig_counts.count_file.map { meta, stage, countFile -> countFile }.collect(),
+        contig_counts_with_status.count_file.collect(),
         '08_contig_counts.tsv',
-        'job_id\tcontig_reads\tcontig_bases'
+        'job_id\tcontig_reads\tcontig_bases\tassembly_status'
     )
     MERGE_L1_FLAG_SUMMARY(
         l1_flag_counts.flag_file.map { meta, flagFile -> flagFile }.collect(),

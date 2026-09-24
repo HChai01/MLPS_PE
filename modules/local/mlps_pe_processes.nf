@@ -552,7 +552,7 @@ EOF
 }
 
 // Select the top-supported reference FASTA for each sample.
-// Output: `${sample}.selected.fasta` under `reference/`.
+// Output: `${sample}.selected.fasta` and `${sample}.selected.double.fasta` under `reference/`.
 process EXTRACT_TOP_REFERENCE {
     tag { meta.id }
     publishDir "${params.outdir}/04_reference", mode: 'copy'
@@ -564,7 +564,7 @@ process EXTRACT_TOP_REFERENCE {
     tuple val(meta), path(ref_summary), path(formatted_reference)
 
     output:
-    tuple val(meta), path('*.selected.fasta'), emit: reference
+    tuple val(meta), path('*.selected.fasta'), path('*.selected.double.fasta'), emit: reference
 
     script:
     """
@@ -573,36 +573,7 @@ process EXTRACT_TOP_REFERENCE {
         --fasta "${formatted_reference}" \
         --out "${meta.id}.selected.fasta" \
         --topn 1
-    """
-
-    stub:
-    """
-    cat <<'EOF' > "${meta.id}.selected.fasta"
->${meta.id}
-ACGTACGTACGT
-EOF
-    """
-}
-
-// Prepare per-sample linear and doubled reference FASTA files for consensus mapping.
-// Output: `${sample}.selected.fasta` and `${sample}.selected.double.fasta`.
-process PREPARE_SAMPLE_REFERENCE {
-    tag { meta.id }
-    publishDir "${params.outdir}/04_reference", mode: 'copy'
-    conda "${projectDir}/environment/samtools_env.yml"
-
-
-
-    input:
-    tuple val(meta), path(reference_fasta, stageAs: 'input_reference.fasta')
-
-    output:
-    tuple val(meta), path('*.selected.fasta'), path('*.selected.double.fasta'), emit: refs
-
-    script:
-    """
-    cp "${reference_fasta}" "${meta.id}.selected.fasta"
-    python "${projectDir}/python/format_fasta.py" --input "${reference_fasta}" \
+    python "${projectDir}/python/format_fasta.py" --input "${meta.id}.selected.fasta" \
         --uppercase yes \
         --removegap yes \
         --double yes \
@@ -611,8 +582,11 @@ process PREPARE_SAMPLE_REFERENCE {
 
     stub:
     """
-    cp "${reference_fasta}" "${meta.id}.selected.fasta"
-    cp "${reference_fasta}" "${meta.id}.selected.double.fasta"
+    cat <<'EOF' > "${meta.id}.selected.fasta"
+>${meta.id}
+ACGTACGTACGT
+EOF
+    cp "${meta.id}.selected.fasta" "${meta.id}.selected.double.fasta"
     """
 }
 
@@ -730,8 +704,8 @@ process COUNT_ALIGNMENT_FLAGS {
     """
 }
 
-// Convert an alignment BAM into a pileup and preserve the original reference alongside it.
-// Output: `${sample}.pileup` and `${sample}.original_reference.fasta`.
+// Convert an alignment BAM into a pileup.
+// Output: `${sample}.pileup`.
 process BUILD_PILEUP {
     tag { meta.id }
     publishDir({ bam.getName().endsWith('.L1.bam') ? "${params.outdir}/07_L1_results" : bam.getName().endsWith('.L2.bam') ? "${params.outdir}/09_L2_results" : "${params.outdir}/08_assembly" }, mode: 'copy')
@@ -743,7 +717,7 @@ process BUILD_PILEUP {
     tuple val(meta), path(bam), path(reference_fasta), path(reference_double)
 
     output:
-    tuple val(meta), path('*.pileup'), path('*.original_reference.fasta'), emit: pileup
+    tuple val(meta), path('*.pileup'), emit: pileup
 
     script:
     def mappingRef = params.target_genome_type == 'circular' ? reference_double.getName() : reference_fasta.getName()
@@ -752,7 +726,6 @@ process BUILD_PILEUP {
         ? """python "${projectDir}/python/dedouble_pileup.py" --input "${meta.id}.pileup.double" --originalref "${reference_fasta.getName()}" --output "${meta.id}.pileup" """
         : 'true'
     """
-    cp "${reference_fasta}" "${meta.id}.original_reference.fasta"
     samtools faidx "${mappingRef}"
     samtools mpileup -aa -A -B -Q 0 -q 0 -f "${mappingRef}" "${bam}" > "${pileupSource}"
     ${dedoubleCmd}
@@ -760,11 +733,33 @@ process BUILD_PILEUP {
 
     stub:
     """
-    cp "${reference_fasta}" "${meta.id}.original_reference.fasta"
     cat <<'EOF' > "${meta.id}.pileup"
 ref\t1\tA\t1\t.\tF
 ref\t2\tC\t1\t.\tF
 EOF
+    """
+}
+
+// Append assembly success status to the contig-count row based on pileup size.
+process ADD_ASSEMBLY_STATUS {
+    tag { meta.id }
+    label 'light'
+
+    input:
+    tuple val(meta), path(count_file, stageAs: 'input_count.tsv'), path(pileup)
+
+    output:
+    path('*.08_contig_counts.tsv'), emit: count_file
+
+    script:
+    """
+    status=\$(if [ -s "${pileup}" ]; then echo SUCCESS; else echo FAILED; fi)
+    awk -v status="\${status}" 'BEGIN { OFS="\\t" } { print \$0, status }' "${count_file}" > "${meta.id}.08_contig_counts.tsv"
+    """
+
+    stub:
+    """
+    printf "%s\\t1\\t12\\tSUCCESS\\n" "${meta.id}" > "${meta.id}.08_contig_counts.tsv"
     """
 }
 
@@ -807,7 +802,7 @@ process FORMAT_PILEUP {
         : """printf "%s\\t0\\t0\\t0\\t0\\n" "${meta.id}" > "${meta.id}.fasta_summary_row.tsv" """
     """
     cp "${pileup}" "${meta.id}.pileup"
-    python "${projectDir}/python/format_pileup.py" --input "${meta.id}.pileup"
+    python "${projectDir}/python/format_pileup.py" --input "${meta.id}.pileup" --ref "${original_reference}"
     ${summaryCmd}
     """
 
@@ -938,11 +933,10 @@ process ALIGN_ASSEMBLY_TO_REFERENCE {
 }
 
 // Prepare the patched reference pair used for the L2 remapping stage.
-// Output: `${sample}.patchedref.original.fasta` and `${sample}.patchedref.fasta`.
+// Output: `${sample}.assemblyref.fasta` and `${sample}.assemblyref.double.fasta`.
 process PREPARE_PATCHED_REFERENCE {
     tag { meta.id }
-    publishDir "${params.outdir}/08_assembly", mode: 'copy', pattern: '*.patchedref.original.fasta'
-    publishDir "${params.outdir}/04_reference", mode: 'copy', pattern: '*.patchedref.fasta'
+    publishDir "${params.outdir}/04_reference", mode: 'copy'
     conda "${projectDir}/environment/samtools_env.yml"
 
 
@@ -951,21 +945,22 @@ process PREPARE_PATCHED_REFERENCE {
     tuple val(meta), path(patched_reference, stageAs: 'input_patchedref.fasta')
 
     output:
-    tuple val(meta), path('*.patchedref.original.fasta'), path('*.patchedref.fasta'), emit: refs
+    tuple val(meta), path('*.assemblyref.fasta'), path('*.assemblyref.double.fasta'), emit: refs
 
     script:
-    def prepCmd = params.target_genome_type == 'circular'
-        ? """python "${projectDir}/python/format_fasta.py" --input "${patched_reference}" --uppercase yes --removegap yes --double yes --output "${meta.id}.patchedref.fasta" """
-        : """cp "${patched_reference}" "${meta.id}.patchedref.fasta" """
     """
-    cp "${patched_reference}" "${meta.id}.patchedref.original.fasta"
-    ${prepCmd}
+    mv "${patched_reference}" "${meta.id}.assemblyref.fasta"
+    python "${projectDir}/python/format_fasta.py" --input "${meta.id}.assemblyref.fasta" \
+        --uppercase yes \
+        --removegap yes \
+        --double yes \
+        --output "${meta.id}.assemblyref.double.fasta"
     """
 
     stub:
     """
-    cp "${patched_reference}" "${meta.id}.patchedref.original.fasta"
-    cp "${patched_reference}" "${meta.id}.patchedref.fasta"
+    cp "${patched_reference}" "${meta.id}.assemblyref.fasta"
+    cp "${patched_reference}" "${meta.id}.assemblyref.double.fasta"
     """
 }
 
@@ -979,17 +974,18 @@ process L2_ALIGN {
 
 
     input:
-    tuple val(meta), path(read1), path(read2), path(original_reference), path(mapping_reference)
+    tuple val(meta), path(read1), path(read2), path(reference_fasta), path(reference_double)
 
     output:
     tuple val(meta), path('*.L2.bam'), emit: bam
 
     script:
+    def mappingRef = params.target_genome_type == 'circular' ? reference_double.getName() : reference_fasta.getName()
     def dedupCmd = params.dedup
-        ? """bwa mem "${mapping_reference.getName()}" "${read1}" "${read2}" | samtools view -h -f1 -F3844 - | samtools sort -@ ${task.cpus} -n | samtools fixmate -m - - | samtools sort -@ ${task.cpus} | samtools markdup - "${meta.id}.L2.bam" """
-        : """bwa mem "${mapping_reference.getName()}" "${read1}" "${read2}" | samtools view -h -f1 -F3844 - | samtools sort -@ ${task.cpus} -o "${meta.id}.L2.bam" -"""
+        ? """bwa mem "${mappingRef}" "${read1}" "${read2}" | samtools view -h -f1 -F3844 - | samtools sort -@ ${task.cpus} -n | samtools fixmate -m - - | samtools sort -@ ${task.cpus} | samtools markdup - "${meta.id}.L2.bam" """
+        : """bwa mem "${mappingRef}" "${read1}" "${read2}" | samtools view -h -f1 -F3844 - | samtools sort -@ ${task.cpus} -o "${meta.id}.L2.bam" -"""
     """
-    bwa index "${mapping_reference.getName()}" >/dev/null 2>&1
+    bwa index "${mappingRef}" >/dev/null 2>&1
     ${dedupCmd}
     samtools index "${meta.id}.L2.bam"
     """
@@ -1062,7 +1058,7 @@ process WRITE_BEST_REFERENCE {
 
 
     input:
-    tuple val(meta), path(selected_reference)
+    tuple val(meta), path(selected_reference), path(selected_double_reference)
 
     output:
     tuple val(meta), path('*.best_ref.tsv'), emit: summary_file
