@@ -278,6 +278,7 @@ process ADAPTER_TRIM {
         -o - \
         "${read1}" "${read2}" \
         --overlap 5 \
+        --match-read-wildcards \
         -e 0.1 \
         -m 15 \
         --cores=${task.cpus} \
@@ -290,6 +291,7 @@ process ADAPTER_TRIM {
             -o - \
             - \
             --overlap 5 \
+            --match-read-wildcards \
             -e 0.1 \
             -m 15 \
             --cores=${task.cpus} \
@@ -303,6 +305,7 @@ process ADAPTER_TRIM {
                 -p "${meta.id}.R2.f3.fastq.gz" \
                 - \
                 --overlap 5 \
+                --match-read-wildcards \
                 -e 0.1 \
                 -m 15 \
                 --cores=${task.cpus} \
