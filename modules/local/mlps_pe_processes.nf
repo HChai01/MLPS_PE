@@ -256,6 +256,7 @@ process ADAPTER_TRIM {
     tag { meta.id }
     publishDir "${params.outdir}/03_adapter_trimming", mode: 'symlink'
     publishDir "${params.outdir}/03_adapter_trimming", mode: 'symlink', pattern: '*.readinfo.*.txt.gz'
+    publishDir "${params.outdir}/03_adapter_trimming", mode: 'symlink', pattern: '*.rest.*.txt.gz'
     publishDir "${params.outdir}/03_adapter_trimming", mode: 'copy', pattern: '*.cutadaptsummary.*.json'
     conda "${projectDir}/environment/cutadapt_env.yml"
 
@@ -268,6 +269,7 @@ process ADAPTER_TRIM {
     tuple val(meta), path("${meta.id}.R1.f3.fastq.gz"), path("${meta.id}.R2.f3.fastq.gz"), emit: pair
     tuple path("${meta.id}.readinfo.3p_adapter.txt.gz"), path("${meta.id}.readinfo.5p_primer.txt.gz"), path("${meta.id}.readinfo.3p_rc_primer.txt.gz"), emit: readinfo
     tuple path("${meta.id}.cutadaptsummary.3p_adapter.json"), path("${meta.id}.cutadaptsummary.5p_primer.json"), path("${meta.id}.cutadaptsummary.3p_rc_primer.json"), emit: json
+    tuple path("${meta.id}.rest.3p_adapter.txt.gz"), path("${meta.id}.rest.5p_primer.txt.gz"), path("${meta.id}.rest.3p_rc_primer.txt.gz"), emit: rest
 
     script:
     """
@@ -282,6 +284,7 @@ process ADAPTER_TRIM {
         -e 0.1 \
         -m 15 \
         --cores=${task.cpus} \
+        --rest-file="${meta.id}.rest.3p_adapter.txt" \
         --info-file "${meta.id}.readinfo.3p_adapter.txt" \
         --json="${meta.id}.cutadaptsummary.3p_adapter.json" \
         | cutadapt \
@@ -295,6 +298,7 @@ process ADAPTER_TRIM {
             -e 0.1 \
             -m 15 \
             --cores=${task.cpus} \
+            --rest-file="${meta.id}.rest.5p_primer.txt" \
             --info-file "${meta.id}.readinfo.5p_primer.txt" \
             --json="${meta.id}.cutadaptsummary.5p_primer.json" \
             | cutadapt \
@@ -309,16 +313,34 @@ process ADAPTER_TRIM {
                 -e 0.1 \
                 -m 15 \
                 --cores=${task.cpus} \
+                --rest-file="${meta.id}.rest.3p_rc_primer.txt" \
                 --info-file "${meta.id}.readinfo.3p_rc_primer.txt" \
                 --json="${meta.id}.cutadaptsummary.3p_rc_primer.json"
 
-    gzip "${meta.id}.readinfo.3p_adapter.txt" "${meta.id}.readinfo.5p_primer.txt" "${meta.id}.readinfo.3p_rc_primer.txt"
+    gzip "${meta.id}.readinfo.3p_adapter.txt" "${meta.id}.readinfo.5p_primer.txt" "${meta.id}.readinfo.3p_rc_primer.txt" "${meta.id}.rest.3p_adapter.txt" "${meta.id}.rest.5p_primer.txt" "${meta.id}.rest.3p_rc_primer.txt"
     """
 
     stub:
     """
     cp "${read1}" "${meta.id}.R1.f3.fastq.gz"
     cp "${read2}" "${meta.id}.R2.f3.fastq.gz"
+    touch \
+        "${meta.id}.readinfo.3p_adapter.txt" \
+        "${meta.id}.readinfo.5p_primer.txt" \
+        "${meta.id}.readinfo.3p_rc_primer.txt" \
+        "${meta.id}.rest.3p_adapter.txt" \
+        "${meta.id}.rest.5p_primer.txt" \
+        "${meta.id}.rest.3p_rc_primer.txt"
+    gzip \
+        "${meta.id}.readinfo.3p_adapter.txt" \
+        "${meta.id}.readinfo.5p_primer.txt" \
+        "${meta.id}.readinfo.3p_rc_primer.txt" \
+        "${meta.id}.rest.3p_adapter.txt" \
+        "${meta.id}.rest.5p_primer.txt" \
+        "${meta.id}.rest.3p_rc_primer.txt"
+    printf '{}\n' > "${meta.id}.cutadaptsummary.3p_adapter.json"
+    printf '{}\n' > "${meta.id}.cutadaptsummary.5p_primer.json"
+    printf '{}\n' > "${meta.id}.cutadaptsummary.3p_rc_primer.json"
     """
 }
 
